@@ -9,6 +9,7 @@
 // local includes
 #include "keyboard_layout.h"
 #include "src/logging.h"
+#include "src/utility.h"
 
 using namespace std::literals;
 
@@ -28,8 +29,24 @@ namespace gabs::keyboard_layout {
     return klid;
   }
 
-  switcher_t::switcher_t(std::unique_ptr<backend_t> backend):
-      backend {std::move(backend)} {
+  switcher_t::switcher_t(std::unique_ptr<backend_t> backend, std::chrono::milliseconds watch_interval, int watch_checks):
+      backend {std::move(backend)},
+      watch_interval {watch_interval},
+      watch_checks {watch_checks} {
+    if (this->backend && watch_interval.count() > 0) {
+      watcher = std::thread {&switcher_t::watcher_loop, this};
+    }
+  }
+
+  switcher_t::~switcher_t() {
+    {
+      std::lock_guard lock {mutex};
+      stopping = true;
+    }
+    wake.notify_all();
+    if (watcher.joinable()) {
+      watcher.join();
+    }
   }
 
   void switcher_t::apply(const std::optional<std::string> &klid) {
@@ -51,8 +68,9 @@ namespace gabs::keyboard_layout {
         return;
       }
     }
-    if (backend->activate_layout(*klid)) {
+    if (const auto handle {backend->activate_layout(*klid)}) {
       BOOST_LOG(info) << "Gabs Remote: keyboard layout "sv << *klid << " for the session"sv;
+      watch(handle);
     } else {
       BOOST_LOG(warning) << "Gabs Remote: could not switch the keyboard layout to "sv << *klid;
       if (saved_now) {
@@ -74,6 +92,7 @@ namespace gabs::keyboard_layout {
     saved_handle.reset();
     if (backend && backend->activate_handle(handle)) {
       BOOST_LOG(info) << "Gabs Remote: keyboard layout restored"sv;
+      watch(handle);
     } else {
       BOOST_LOG(warning) << "Gabs Remote: could not restore the keyboard layout"sv;
     }
@@ -82,6 +101,50 @@ namespace gabs::keyboard_layout {
   std::optional<std::uintptr_t> switcher_t::saved() const {
     std::lock_guard lock {mutex};
     return saved_handle;
+  }
+
+  void switcher_t::watch(std::optional<std::uintptr_t> handle) {
+    wanted_handle = handle;
+    checks_left = handle ? watch_checks : 0;
+    wake.notify_all();
+  }
+
+  bool switcher_t::reassert() {
+    std::lock_guard lock {mutex};
+    return reassert_unlocked();
+  }
+
+  bool switcher_t::reassert_unlocked() {
+    if (!backend || !wanted_handle || checks_left <= 0) {
+      return false;
+    }
+    --checks_left;
+    const auto current {backend->current()};
+    if (current && *current != *wanted_handle) {
+      BOOST_LOG(info) << "Gabs Remote: foreground window has keyboard layout 0x"sv << util::hex(*current).to_string_view()
+                      << ", asking again for 0x"sv << util::hex(*wanted_handle).to_string_view();
+      backend->activate_handle(*wanted_handle);
+    }
+    return true;
+  }
+
+  void switcher_t::watcher_loop() {
+    std::unique_lock lock {mutex};
+    while (!stopping) {
+      wake.wait(lock, [this]() {
+        return stopping || checks_left > 0;
+      });
+      if (stopping) {
+        break;
+      }
+      // Wait one interval before each check; a new switch during the wait just restarts the count.
+      if (wake.wait_for(lock, watch_interval, [this]() {
+            return stopping;
+          })) {
+        break;
+      }
+      reassert_unlocked();
+    }
   }
 
   namespace {

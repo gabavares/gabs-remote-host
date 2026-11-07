@@ -304,8 +304,8 @@ int main(int argc, char *argv[]) {
     display_device::device_id_from_display_name
   ));
   gabs::virtual_display::instance().startup_cleanup();
-  // Gabs Remote: keyboard layout of the session (grKeyboard).
-  gabs::keyboard_layout::install(std::make_unique<gabs::keyboard_layout::switcher_t>(gabs::keyboard_layout::make_platform_backend()));
+  // Gabs Remote: keyboard layout of the session (grKeyboard); after a switch, check the foreground window every 500 ms for 10 s (the display change moves the focus).
+  gabs::keyboard_layout::install(std::make_unique<gabs::keyboard_layout::switcher_t>(gabs::keyboard_layout::make_platform_backend(), std::chrono::milliseconds {500}, 20));
 
 #ifdef _WIN32
   // Modify relevant NVIDIA control panel settings if the system has corresponding gpu

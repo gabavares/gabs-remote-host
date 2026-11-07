@@ -7,6 +7,7 @@
 #include "../../tests_common.h"
 
 // standard includes
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -36,13 +37,13 @@ namespace {
       return state->current;
     }
 
-    bool activate_layout(const std::string &klid) override {
+    std::optional<std::uintptr_t> activate_layout(const std::string &klid) override {
       if (state->fail_activate) {
-        return false;
+        return std::nullopt;
       }
       state->activated_layouts.push_back(klid);
       state->current = 0xF0010416;
-      return true;
+      return 0xF0010416;
     }
 
     bool activate_handle(std::uintptr_t handle) override {
@@ -135,4 +136,58 @@ TEST(KeyboardLayoutSwitcher, WithoutBackendIsSafe) {
   switcher.apply(std::string {"00010416"});
   switcher.restore();
   EXPECT_EQ(switcher.saved(), std::nullopt);
+}
+
+TEST(KeyboardLayoutSwitcher, ReassertAsksAgainWhenTheForegroundLostTheLayout) {
+  switcher_fixture_t f;
+  f.switcher.apply(std::string {"00010416"});
+  f.state->current = 0x04090409;  // the display change moved the focus to a window still in English
+  EXPECT_TRUE(f.switcher.reassert());
+  EXPECT_EQ(f.state->restored_handles, std::vector<std::uintptr_t> {0xF0010416});
+  EXPECT_EQ(f.state->current, std::optional<std::uintptr_t> {0xF0010416});
+}
+
+TEST(KeyboardLayoutSwitcher, ReassertLeavesTheLayoutAloneWhenItHolds) {
+  switcher_fixture_t f;
+  f.switcher.apply(std::string {"00010416"});
+  EXPECT_TRUE(f.switcher.reassert());
+  EXPECT_TRUE(f.state->restored_handles.empty());
+}
+
+TEST(KeyboardLayoutSwitcher, ReassertStopsAfterTheWatchWindow) {
+  auto state {std::make_shared<fake_state_t>()};
+  kl::switcher_t switcher {std::make_unique<fake_backend_t>(state), std::chrono::milliseconds {0}, 3};
+  switcher.apply(std::string {"00010416"});
+  EXPECT_TRUE(switcher.reassert());
+  EXPECT_TRUE(switcher.reassert());
+  EXPECT_TRUE(switcher.reassert());
+  state->current = 0x04090409;  // the user switched back on purpose after the window
+  EXPECT_FALSE(switcher.reassert());
+  EXPECT_TRUE(state->restored_handles.empty());
+}
+
+TEST(KeyboardLayoutSwitcher, ReassertAfterRestoreKeepsThePreviousLayout) {
+  switcher_fixture_t f;
+  f.switcher.apply(std::string {"00010416"});
+  f.switcher.restore();
+  f.state->current = 0xF0010416;  // the physical monitors came back and the focus moved
+  EXPECT_TRUE(f.switcher.reassert());
+  EXPECT_EQ(f.state->restored_handles, (std::vector<std::uintptr_t> {0x04090409, 0x04090409}));
+}
+
+TEST(KeyboardLayoutSwitcher, ReassertWithoutSessionDoesNothing) {
+  switcher_fixture_t f;
+  EXPECT_FALSE(f.switcher.reassert());
+  f.state->current = std::nullopt;
+  f.switcher.apply(std::string {"00010416"});
+  EXPECT_FALSE(f.switcher.reassert());
+  EXPECT_TRUE(f.state->restored_handles.empty());
+}
+
+TEST(KeyboardLayoutSwitcher, ReassertSkipsWhenThereIsNoForegroundWindow) {
+  switcher_fixture_t f;
+  f.switcher.apply(std::string {"00010416"});
+  f.state->current = std::nullopt;
+  EXPECT_TRUE(f.switcher.reassert());
+  EXPECT_TRUE(f.state->restored_handles.empty());
 }

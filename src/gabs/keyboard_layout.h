@@ -9,12 +9,15 @@
 #pragma once
 
 // standard includes
+#include <chrono>
+#include <condition_variable>
 #include <cstdint>
 #include <memory>
 #include <mutex>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <thread>
 
 namespace gabs::keyboard_layout {
 
@@ -41,9 +44,9 @@ namespace gabs::keyboard_layout {
     /**
      * @brief Activate a layout by its KLID.
      * @param klid Keyboard layout id (8 hex digits).
-     * @return True on success.
+     * @return Handle of the activated layout (same kind as `current()`), or empty on failure.
      */
-    virtual bool activate_layout(const std::string &klid) = 0;
+    virtual std::optional<std::uintptr_t> activate_layout(const std::string &klid) = 0;
 
     /**
      * @brief Activate a layout by a handle returned from `current()`.
@@ -55,14 +58,24 @@ namespace gabs::keyboard_layout {
 
   /**
    * @brief Switches the layout for a session and remembers the one to go back to.
+   *
+   * Right after a switch the host also turns the virtual display on or off, and Windows moves the focus
+   * while it rearranges the windows; a window still in the old layout can end up in the foreground. So for
+   * a while after each switch (and each restore) the switcher checks the foreground window and asks again.
    */
   class switcher_t {
   public:
     /**
      * @brief Construct the switcher.
      * @param backend Platform backend (null = do nothing).
+     * @param watch_interval Time between checks after a switch; zero = no watcher thread (call `reassert`).
+     * @param watch_checks How many checks follow each switch or restore.
      */
-    explicit switcher_t(std::unique_ptr<backend_t> backend);
+    explicit switcher_t(std::unique_ptr<backend_t> backend, std::chrono::milliseconds watch_interval = std::chrono::milliseconds {0}, int watch_checks = 20);
+
+    ~switcher_t();
+    switcher_t(const switcher_t &) = delete;
+    switcher_t &operator=(const switcher_t &) = delete;
 
     /**
      * @brief Apply the layout asked in a launch or resume.
@@ -81,12 +94,28 @@ namespace gabs::keyboard_layout {
      */
     std::optional<std::uintptr_t> saved() const;
 
+    /**
+     * @brief One check after a switch or restore: ask again when the foreground window lost the layout.
+     * @return True while the watch after the last switch or restore is still going.
+     */
+    bool reassert();
+
   private:
     void restore_unlocked();
+    void watch(std::optional<std::uintptr_t> handle);
+    bool reassert_unlocked();
+    void watcher_loop();
 
     std::unique_ptr<backend_t> backend;
+    const std::chrono::milliseconds watch_interval;
+    const int watch_checks;
     mutable std::mutex mutex;
+    std::condition_variable wake;
     std::optional<std::uintptr_t> saved_handle;
+    std::optional<std::uintptr_t> wanted_handle;  ///< Layout the watch keeps in the foreground.
+    int checks_left {0};
+    bool stopping {false};
+    std::thread watcher;
   };
 
   /**

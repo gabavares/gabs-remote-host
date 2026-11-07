@@ -68,15 +68,18 @@ namespace gabs::keyboard_layout {
         });
       }
 
-      bool activate_layout(const std::string &klid) override {
-        return on_input_desktop<bool>([&klid]() {
+      std::optional<std::uintptr_t> activate_layout(const std::string &klid) override {
+        return on_input_desktop<std::optional<std::uintptr_t>>([&klid]() -> std::optional<std::uintptr_t> {
           const std::wstring wide {klid.begin(), klid.end()};
           const auto layout {LoadKeyboardLayoutW(wide.c_str(), KLF_NOTELLSHELL)};
           if (!layout) {
             BOOST_LOG(warning) << "Gabs Remote: could not load keyboard layout "sv << klid << " [0x"sv << util::hex(GetLastError()).to_string_view() << ']';
-            return false;
+            return std::nullopt;
           }
-          return request_layout(layout);
+          if (!request_layout(layout)) {
+            return std::nullopt;
+          }
+          return reinterpret_cast<std::uintptr_t>(layout);
         });
       }
 
