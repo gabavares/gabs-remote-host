@@ -22,6 +22,7 @@ namespace kl = gabs::keyboard_layout;
 namespace {
   struct fake_state_t {
     std::optional<std::uintptr_t> current {0x04090409};  // English (US)
+    std::optional<std::string> desktop {"Default"};
     bool fail_activate = false;
     std::vector<std::string> activated_layouts;
     std::vector<std::uintptr_t> restored_handles;
@@ -35,6 +36,10 @@ namespace {
 
     std::optional<std::uintptr_t> current() override {
       return state->current;
+    }
+
+    std::optional<std::string> input_desktop() override {
+      return state->desktop;
     }
 
     std::optional<std::uintptr_t> activate_layout(const std::string &klid) override {
@@ -190,4 +195,53 @@ TEST(KeyboardLayoutSwitcher, ReassertSkipsWhenThereIsNoForegroundWindow) {
   f.state->current = std::nullopt;
   EXPECT_TRUE(f.switcher.reassert());
   EXPECT_TRUE(f.state->restored_handles.empty());
+}
+
+TEST(KeyboardLayoutSwitcher, LoginScreenThenDesktopAsksAgainAndRestoresTheUserLayout) {
+  switcher_fixture_t f;
+  f.state->desktop = "Winlogon";  // session opened on the login screen
+  f.switcher.apply(std::string {"00010416"});
+  f.state->desktop = "Default";  // the user logged in: English (US-International) on the desktop
+  f.state->current = 0xF0010409;
+  EXPECT_TRUE(f.switcher.reassert());
+  EXPECT_EQ(f.state->restored_handles, std::vector<std::uintptr_t> {0xF0010416});
+  EXPECT_EQ(f.switcher.saved(), std::optional<std::uintptr_t> {0xF0010409});
+  f.switcher.restore();
+  EXPECT_EQ(f.state->restored_handles.back(), 0xF0010409);
+}
+
+TEST(KeyboardLayoutSwitcher, SecureDesktopAndBackKeepsTheLayoutSavedOnTheDesktop) {
+  switcher_fixture_t f;
+  f.switcher.apply(std::string {"00010416"});
+  f.state->desktop = "Winlogon";  // UAC prompt
+  f.state->current = 0x04090409;
+  EXPECT_TRUE(f.switcher.reassert());
+  f.state->desktop = "Default";
+  f.state->current = 0xF0010416;
+  EXPECT_TRUE(f.switcher.reassert());
+  f.switcher.restore();
+  EXPECT_EQ(f.state->restored_handles, (std::vector<std::uintptr_t> {0xF0010416, 0x04090409}));
+}
+
+TEST(KeyboardLayoutSwitcher, DesktopChangeStartsTheWatchAgain) {
+  auto state {std::make_shared<fake_state_t>()};
+  kl::switcher_t switcher {std::make_unique<fake_backend_t>(state), std::chrono::milliseconds {0}, 1};
+  switcher.apply(std::string {"00010416"});
+  EXPECT_TRUE(switcher.reassert());
+  EXPECT_FALSE(switcher.reassert());
+  state->desktop = "Winlogon";  // locked
+  state->current = 0x04090409;
+  EXPECT_TRUE(switcher.reassert());
+  EXPECT_EQ(state->restored_handles, std::vector<std::uintptr_t> {0xF0010416});
+}
+
+TEST(KeyboardLayoutSwitcher, DesktopIsNotWatchedAfterTheSession) {
+  switcher_fixture_t f;
+  f.switcher.apply(std::string {"00010416"});
+  f.switcher.restore();
+  while (f.switcher.reassert()) {
+  }
+  f.state->desktop = "Winlogon";
+  EXPECT_FALSE(f.switcher.reassert());
+  EXPECT_EQ(f.state->restored_handles, std::vector<std::uintptr_t> {0x04090409});
 }

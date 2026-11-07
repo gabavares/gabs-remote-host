@@ -259,7 +259,9 @@ namespace gabs::virtual_display {
   }
 
   bool should_revert_on_session_end(bool upstream_decision) {
-    return upstream_decision || instance().active_device_id().has_value();
+    // The tablet app went to the background (Alt+Tab, Home): keep the virtual display, so coming back is
+    // quick. It goes away when the client quits the app (Disconnect, Back) or the app ends on the host.
+    return upstream_decision && !instance().active_device_id().has_value();
   }
 
   void prepare_launch(display_choice_e choice, const std::function<void()> &cancel_pending_revert, const std::function<void()> &revert_now) {

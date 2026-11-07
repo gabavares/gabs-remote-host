@@ -12,6 +12,7 @@
 #include <chrono>
 #include <condition_variable>
 #include <cstdint>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -42,6 +43,12 @@ namespace gabs::keyboard_layout {
     virtual std::optional<std::uintptr_t> current() = 0;
 
     /**
+     * @brief Name of the desktop that receives the input ("Default", or "Winlogon" on the login, lock and UAC screens).
+     * @return The name, or empty when it cannot be read.
+     */
+    virtual std::optional<std::string> input_desktop() = 0;
+
+    /**
      * @brief Activate a layout by its KLID.
      * @param klid Keyboard layout id (8 hex digits).
      * @return Handle of the activated layout (same kind as `current()`), or empty on failure.
@@ -62,6 +69,10 @@ namespace gabs::keyboard_layout {
    * Right after a switch the host also turns the virtual display on or off, and Windows moves the focus
    * while it rearranges the windows; a window still in the old layout can end up in the foreground. So for
    * a while after each switch (and each restore) the switcher checks the foreground window and asks again.
+   *
+   * The login, lock and UAC screens are another desktop, with their own windows and layouts. During a session
+   * the switcher follows the input desktop: on a change it asks again for the session layout, and the first
+   * time it sees a desktop it saves that desktop's layout, so the restore uses the one of the desktop in use.
    */
   class switcher_t {
   public:
@@ -102,6 +113,7 @@ namespace gabs::keyboard_layout {
 
   private:
     void restore_unlocked();
+    void follow_desktop();
     void watch(std::optional<std::uintptr_t> handle);
     bool reassert_unlocked();
     void watcher_loop();
@@ -111,7 +123,10 @@ namespace gabs::keyboard_layout {
     const int watch_checks;
     mutable std::mutex mutex;
     std::condition_variable wake;
-    std::optional<std::uintptr_t> saved_handle;
+    std::optional<std::uintptr_t> saved_handle;  ///< Layout to go back to (from the desktop of the first switch).
+    std::optional<std::uintptr_t> session_handle;  ///< Layout of the session while it is in effect.
+    std::optional<std::string> current_desktop;
+    std::map<std::string, std::uintptr_t> saved_by_desktop;
     std::optional<std::uintptr_t> wanted_handle;  ///< Layout the watch keeps in the foreground.
     int checks_left {0};
     bool stopping {false};

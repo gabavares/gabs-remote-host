@@ -1630,6 +1630,7 @@ namespace nvhttp {
     }
 
     // The config needs to be reverted regardless of whether "proc::proc.terminate()" was called or not.
+    gabs::keyboard_layout::instance().restore();  // Gabs Remote
     display_device::revert_configuration();
   }
 

@@ -258,12 +258,14 @@ TEST_F(VirtualDisplayFixture, EnsureRecreatesWhenReusedDisplayVanished) {
   EXPECT_EQ(vd::instance().ensure("tab", {2800, 1752, 120}), std::optional<std::string> {DEVICE_ID});
 }
 
-TEST_F(VirtualDisplayFixture, SessionEndRevertsWhenVirtualActive) {
+TEST_F(VirtualDisplayFixture, SessionEndKeepsTheVirtualDisplayWhileTheAppRuns) {
   install_fake();
   EXPECT_FALSE(vd::should_revert_on_session_end(false));
   EXPECT_TRUE(vd::should_revert_on_session_end(true));
+  // The tablet app went to the background: keep the display until the client quits the app.
   vd::instance().ensure("tab", {2800, 1752, 120});
-  EXPECT_TRUE(vd::should_revert_on_session_end(false));
+  EXPECT_FALSE(vd::should_revert_on_session_end(false));
+  EXPECT_FALSE(vd::should_revert_on_session_end(true));
 }
 
 TEST_F(VirtualDisplayFixture, PrepareLaunchAlwaysCancelsPendingRevert) {

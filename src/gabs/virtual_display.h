@@ -220,8 +220,9 @@ namespace gabs::virtual_display {
   /**
    * @brief Whether the display configuration must be reverted when the last session ends.
    *
-   * Upstream keeps the configuration while an app is still "running" (the Desktop app never stops),
-   * but a virtual display must go away on disconnect, or the physical monitors stay off.
+   * Upstream keeps the configuration while an app is still "running" (the Desktop app never stops).
+   * With a virtual display the PC also stays ready when the tablet app goes to the background: the display
+   * goes away only when the client quits the app (`/cancel`) or the app ends on the host.
    * @param upstream_decision What upstream decided (`config_revert_on_disconnect` or no app running).
    * @return True to revert.
    */

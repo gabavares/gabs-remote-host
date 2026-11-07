@@ -67,14 +67,21 @@ namespace gabs::keyboard_layout {
         BOOST_LOG(warning) << "Gabs Remote: no foreground window to read the keyboard layout from; keeping it"sv;
         return;
       }
+      current_desktop = backend->input_desktop();
+      if (current_desktop) {
+        saved_by_desktop[*current_desktop] = *saved_handle;
+      }
     }
     if (const auto handle {backend->activate_layout(*klid)}) {
       BOOST_LOG(info) << "Gabs Remote: keyboard layout "sv << *klid << " for the session"sv;
+      session_handle = handle;
       watch(handle);
     } else {
       BOOST_LOG(warning) << "Gabs Remote: could not switch the keyboard layout to "sv << *klid;
       if (saved_now) {
         saved_handle.reset();
+        current_desktop.reset();
+        saved_by_desktop.clear();
       }
     }
   }
@@ -88,8 +95,19 @@ namespace gabs::keyboard_layout {
     if (!saved_handle) {
       return;
     }
-    const auto handle {*saved_handle};
+    auto handle {*saved_handle};
+    if (backend) {
+      // The layout saved on the desktop in use (the login screen has its own).
+      if (const auto desktop {backend->input_desktop()}) {
+        if (const auto it {saved_by_desktop.find(*desktop)}; it != saved_by_desktop.end()) {
+          handle = it->second;
+        }
+      }
+    }
     saved_handle.reset();
+    session_handle.reset();
+    current_desktop.reset();
+    saved_by_desktop.clear();
     if (backend && backend->activate_handle(handle)) {
       BOOST_LOG(info) << "Gabs Remote: keyboard layout restored"sv;
       watch(handle);
@@ -100,7 +118,30 @@ namespace gabs::keyboard_layout {
 
   std::optional<std::uintptr_t> switcher_t::saved() const {
     std::lock_guard lock {mutex};
+    if (current_desktop) {
+      if (const auto it {saved_by_desktop.find(*current_desktop)}; it != saved_by_desktop.end()) {
+        return it->second;
+      }
+    }
     return saved_handle;
+  }
+
+  void switcher_t::follow_desktop() {
+    if (!backend || !session_handle) {
+      return;
+    }
+    const auto desktop {backend->input_desktop()};
+    if (!desktop || desktop == current_desktop) {
+      return;
+    }
+    current_desktop = desktop;
+    if (!saved_by_desktop.contains(*desktop)) {
+      if (const auto layout {backend->current()}; layout && *layout != *session_handle) {
+        saved_by_desktop[*desktop] = *layout;
+      }
+    }
+    BOOST_LOG(info) << "Gabs Remote: input desktop is now "sv << *desktop << "; asking again for the session keyboard layout"sv;
+    watch(session_handle);
   }
 
   void switcher_t::watch(std::optional<std::uintptr_t> handle) {
@@ -115,6 +156,7 @@ namespace gabs::keyboard_layout {
   }
 
   bool switcher_t::reassert_unlocked() {
+    follow_desktop();
     if (!backend || !wanted_handle || checks_left <= 0) {
       return false;
     }
@@ -131,8 +173,9 @@ namespace gabs::keyboard_layout {
   void switcher_t::watcher_loop() {
     std::unique_lock lock {mutex};
     while (!stopping) {
+      // While a session layout is in effect, keep looking at the input desktop (login, lock, UAC).
       wake.wait(lock, [this]() {
-        return stopping || checks_left > 0;
+        return stopping || checks_left > 0 || session_handle.has_value();
       });
       if (stopping) {
         break;

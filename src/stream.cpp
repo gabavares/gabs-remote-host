@@ -2323,8 +2323,7 @@ namespace stream {
 
       // If this is the last session, invoke the platform callbacks
       if (--running_sessions == 0) {
-        gabs::keyboard_layout::instance().restore();  // Gabs Remote: the PC keyboard gets its layout back
-        // Gabs Remote: a virtual display must go away on disconnect even while the app keeps running.
+        // Gabs Remote: with a virtual display the PC stays ready (display and keyboard) until the app is quit.
         bool revert_display_config {gabs::virtual_display::should_revert_on_session_end(config::video.dd.config_revert_on_disconnect)};
         if (proc::proc.running()) {
 #if defined SUNSHINE_TRAY && SUNSHINE_TRAY >= 1
@@ -2337,6 +2336,7 @@ namespace stream {
         }
 
         if (revert_display_config) {
+          gabs::keyboard_layout::instance().restore();  // Gabs Remote: the PC keyboard gets its layout back
           display_device::revert_configuration();
         }
 

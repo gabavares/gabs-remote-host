@@ -68,6 +68,25 @@ namespace gabs::keyboard_layout {
         });
       }
 
+      std::optional<std::string> input_desktop() override {
+        const auto desktop {OpenInputDesktop(0, FALSE, GENERIC_READ)};
+        if (!desktop) {
+          return std::nullopt;
+        }
+        wchar_t name[64] {};
+        DWORD needed {0};
+        const bool ok {GetUserObjectInformationW(desktop, UOI_NAME, name, sizeof(name), &needed) != 0};
+        CloseDesktop(desktop);
+        if (!ok) {
+          return std::nullopt;
+        }
+        std::string result;
+        for (const wchar_t *c {name}; *c; ++c) {
+          result += static_cast<char>(*c);
+        }
+        return result;
+      }
+
       std::optional<std::uintptr_t> activate_layout(const std::string &klid) override {
         return on_input_desktop<std::optional<std::uintptr_t>>([&klid]() -> std::optional<std::uintptr_t> {
           const std::wstring wide {klid.begin(), klid.end()};
