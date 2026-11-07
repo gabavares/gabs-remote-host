@@ -89,8 +89,12 @@ namespace gabs::virtual_display {
         for (auto wait {20ms}; !SUDOVDA::GetAddedDisplayName(output, device_name); wait *= 2) {
           if (wait > 1280ms) {
             BOOST_LOG(error) << "Gabs Remote: SudoVDA added a display but Windows did not activate it in time"sv;
+            SUDOVDA::RemoveVirtualDisplay(handle, guid);
+            known.erase(client_uid);
             return std::nullopt;
           }
+          // Keep the watchdog happy while Windows activates the display (this mutex blocks keep_alive()).
+          SUDOVDA::PingDriver(handle);
           std::this_thread::sleep_for(wait);
         }
         return utf_utils::to_utf8(std::wstring {device_name});

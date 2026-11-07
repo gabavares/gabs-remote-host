@@ -7,6 +7,8 @@
 #include "../../tests_common.h"
 
 // standard includes
+#include <atomic>
+#include <chrono>
 #include <memory>
 #include <optional>
 #include <string>
@@ -14,6 +16,7 @@
 // local includes
 #include <src/config.h>
 #include <src/gabs/virtual_display.h>
+#include <thread>
 
 namespace vd = gabs::virtual_display;
 
@@ -22,7 +25,10 @@ namespace {
     int add = 0;
     int remove = 0;
     int remove_all = 0;
-    int keep_alive = 0;
+    std::atomic<int> keep_alive = 0;
+    std::chrono::milliseconds add_delay {0};
+    std::atomic<int> keep_alive_during_add = 0;
+    bool adding = false;
   };
 
   class fake_driver_t: public vd::driver_t {
@@ -38,6 +44,13 @@ namespace {
 
     std::optional<std::string> add(const std::string &, const vd::mode_t &) override {
       ++counts->add;
+      if (counts->add_delay.count() > 0) {
+        counts->adding = true;
+        const auto before {counts->keep_alive.load()};
+        std::this_thread::sleep_for(counts->add_delay);
+        counts->keep_alive_during_add = counts->keep_alive.load() - before;
+        counts->adding = false;
+      }
       if (fail_add) {
         return std::nullopt;
       }
@@ -64,8 +77,10 @@ namespace {
 
   constexpr auto DEVICE_ID {"{gabs-virtual-device-id}"};
 
+  std::atomic<bool> fake_device_present {true};
+
   std::optional<std::string> fake_device_id_for(const std::string &display_name) {
-    if (display_name == R"(\\.\DISPLAY22)") {
+    if (fake_device_present && display_name == R"(\\.\DISPLAY22)") {
       return std::string {DEVICE_ID};
     }
     return std::nullopt;
@@ -87,6 +102,10 @@ namespace {
         std::make_unique<fake_driver_t>(counts, fail_add),
         resolve_device ? fake_device_id_for : no_device_id_for
       ));
+    }
+
+    void SetUp() override {
+      fake_device_present = true;
     }
 
     void TearDown() override {
@@ -219,4 +238,68 @@ TEST_F(VirtualDisplayFixture, DriverlessManagerIsSafe) {
   vd::instance().release_all();
   vd::instance().startup_cleanup();
   EXPECT_EQ(vd::effective_output_name("cfg"), "cfg");
+}
+
+TEST_F(VirtualDisplayFixture, KeepAliveRunsWhileDriverAddIsSlow) {
+  // SudoVDA removes displays after 3 s without a ping; creating one can take seconds.
+  counts->add_delay = std::chrono::milliseconds {2500};
+  install_fake();
+  ASSERT_TRUE(vd::instance().ensure("tab", {2800, 1752, 120}).has_value());
+  EXPECT_GE(counts->keep_alive_during_add.load(), 1);
+}
+
+TEST_F(VirtualDisplayFixture, EnsureRecreatesWhenReusedDisplayVanished) {
+  install_fake();
+  vd::instance().ensure("tab", {2800, 1752, 120});
+  fake_device_present = false;  // removed behind our back (watchdog, driver restart)
+  EXPECT_FALSE(vd::instance().ensure("tab", {2800, 1752, 120}).has_value());
+  EXPECT_EQ(counts->add, 2);
+  fake_device_present = true;
+  EXPECT_EQ(vd::instance().ensure("tab", {2800, 1752, 120}), std::optional<std::string> {DEVICE_ID});
+}
+
+TEST_F(VirtualDisplayFixture, SessionEndRevertsWhenVirtualActive) {
+  install_fake();
+  EXPECT_FALSE(vd::should_revert_on_session_end(false));
+  EXPECT_TRUE(vd::should_revert_on_session_end(true));
+  vd::instance().ensure("tab", {2800, 1752, 120});
+  EXPECT_TRUE(vd::should_revert_on_session_end(false));
+}
+
+TEST_F(VirtualDisplayFixture, PrepareLaunchAlwaysCancelsPendingRevert) {
+  install_fake();
+  int cancels = 0, reverts = 0;
+  vd::prepare_launch(vd::display_choice_e::virtual_display, [&]() { ++cancels; }, [&]() { ++reverts; });
+  vd::prepare_launch(vd::display_choice_e::mirror, [&]() { ++cancels; }, [&]() { ++reverts; });
+  vd::prepare_launch(vd::display_choice_e::upstream, [&]() { ++cancels; }, [&]() { ++reverts; });
+  EXPECT_EQ(cancels, 3);
+  EXPECT_EQ(reverts, 0);  // nothing virtual was active
+}
+
+TEST_F(VirtualDisplayFixture, PrepareMirrorAfterVirtualRevertsAndReleases) {
+  install_fake();
+  vd::instance().ensure("tab", {2800, 1752, 120});
+  int reverts = 0;
+  vd::prepare_launch(vd::display_choice_e::mirror, []() {}, [&]() { ++reverts; });
+  EXPECT_EQ(reverts, 1);
+  EXPECT_FALSE(vd::instance().active_device_id().has_value());
+  EXPECT_EQ(vd::effective_output_name("cfg"), "cfg");
+}
+
+TEST_F(VirtualDisplayFixture, PrepareUpstreamAfterVirtualRevertsAndReleases) {
+  install_fake();
+  vd::instance().ensure("tab", {2800, 1752, 120});
+  int reverts = 0;
+  vd::prepare_launch(vd::display_choice_e::upstream, []() {}, [&]() { ++reverts; });
+  EXPECT_EQ(reverts, 1);
+  EXPECT_FALSE(vd::instance().active_device_id().has_value());
+}
+
+TEST_F(VirtualDisplayFixture, PrepareVirtualKeepsActiveDisplay) {
+  install_fake();
+  vd::instance().ensure("tab", {2800, 1752, 120});
+  int reverts = 0;
+  vd::prepare_launch(vd::display_choice_e::virtual_display, []() {}, [&]() { ++reverts; });
+  EXPECT_EQ(reverts, 0);
+  EXPECT_TRUE(vd::instance().active_device_id().has_value());
 }

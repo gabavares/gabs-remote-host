@@ -64,8 +64,7 @@ namespace gabs::virtual_display {
   }
 
   manager_t::~manager_t() {
-    std::unique_lock lock {mutex};
-    stop_keep_alive_unlocked(lock);
+    stop_keep_alive();
   }
 
   std::optional<std::string> manager_t::ensure(const std::string &client_uid, const mode_t &mode) {
@@ -75,17 +74,31 @@ namespace gabs::virtual_display {
     }
 
     if (active_id && active_client == client_uid && active_mode == mode) {
-      BOOST_LOG(info) << "Gabs Remote: reusing the virtual display of this client ("sv << *active_id << ')';
-      return active_id;
+      // Make sure the display still exists (the driver watchdog or a driver restart may have removed it).
+      const auto name {*active_display_name};
+      lock.unlock();
+      const auto still_there {device_id_for(name)};
+      lock.lock();
+      if (still_there && active_id && active_client == client_uid && active_mode == mode) {
+        active_id = still_there;
+        BOOST_LOG(info) << "Gabs Remote: reusing the virtual display of this client ("sv << *active_id << ')';
+        return active_id;
+      }
+      BOOST_LOG(warning) << "Gabs Remote: the virtual display of this client is gone; creating it again"sv;
     }
 
     if (active_client) {
       remove_active_unlocked();
     }
 
+    // Ping the driver from now on: creating a display can take longer than the watchdog timeout.
+    start_keep_alive();
+
     const auto display_name {driver->add(client_uid, mode)};
     if (!display_name) {
       BOOST_LOG(warning) << "Gabs Remote: the virtual display driver could not create a "sv << mode.width << 'x' << mode.height << '@' << mode.refresh_hz << " display"sv;
+      lock.unlock();
+      stop_keep_alive();
       return std::nullopt;
     }
 
@@ -97,36 +110,43 @@ namespace gabs::virtual_display {
     if (!device_id) {
       BOOST_LOG(warning) << "Gabs Remote: virtual display "sv << *display_name << " was created but did not show up as a display device; removing it"sv;
       driver->remove(client_uid);
+      lock.unlock();
+      stop_keep_alive();
       return std::nullopt;
     }
 
     BOOST_LOG(info) << "Gabs Remote: virtual display "sv << *display_name << " (" << *device_id << ") at "sv << mode.width << 'x' << mode.height << '@' << mode.refresh_hz;
     active_client = client_uid;
     active_mode = mode;
+    active_display_name = display_name;
     active_id = device_id;
-    start_keep_alive_unlocked();
     return active_id;
   }
 
   void manager_t::release_all() {
-    std::unique_lock lock {mutex};
-    if (!active_client) {
-      return;
+    {
+      std::lock_guard lock {mutex};
+      if (!active_client) {
+        return;
+      }
+      BOOST_LOG(info) << "Gabs Remote: removing the virtual display"sv;
+      remove_active_unlocked();
     }
-    BOOST_LOG(info) << "Gabs Remote: removing the virtual display"sv;
-    remove_active_unlocked();
-    stop_keep_alive_unlocked(lock);
+    stop_keep_alive();
   }
 
   void manager_t::startup_cleanup() {
-    std::unique_lock lock {mutex};
-    if (driver) {
-      driver->remove_all();
+    {
+      std::lock_guard lock {mutex};
+      if (driver) {
+        driver->remove_all();
+      }
+      active_client.reset();
+      active_mode.reset();
+      active_display_name.reset();
+      active_id.reset();
     }
-    active_client.reset();
-    active_mode.reset();
-    active_id.reset();
-    stop_keep_alive_unlocked(lock);
+    stop_keep_alive();
   }
 
   std::optional<std::string> manager_t::active_device_id() const {
@@ -140,38 +160,40 @@ namespace gabs::virtual_display {
     }
     active_client.reset();
     active_mode.reset();
+    active_display_name.reset();
     active_id.reset();
   }
 
-  void manager_t::start_keep_alive_unlocked() {
-    if (keep_alive_running) {
+  void manager_t::start_keep_alive() {
+    std::lock_guard lock {keep_alive_mutex};
+    if (keep_alive_running || !driver) {
       return;
     }
     keep_alive_running = true;
     keep_alive_thread = std::thread {[this]() {
-      std::unique_lock lock {mutex};
+      std::unique_lock lock {keep_alive_mutex};
       while (keep_alive_running) {
-        if (driver && active_client) {
-          driver->keep_alive();
-        }
-        wake.wait_for(lock, 1s, [this]() {
+        lock.unlock();
+        driver->keep_alive();
+        lock.lock();
+        keep_alive_wake.wait_for(lock, 1s, [this]() {
           return !keep_alive_running;
         });
       }
     }};
   }
 
-  void manager_t::stop_keep_alive_unlocked(std::unique_lock<std::mutex> &lock) {
-    if (!keep_alive_thread.joinable()) {
+  void manager_t::stop_keep_alive() {
+    std::thread thread;
+    {
+      std::lock_guard lock {keep_alive_mutex};
       keep_alive_running = false;
-      return;
+      thread = std::move(keep_alive_thread);
     }
-    keep_alive_running = false;
-    wake.notify_all();
-    auto thread {std::move(keep_alive_thread)};
-    lock.unlock();
-    thread.join();
-    lock.lock();
+    keep_alive_wake.notify_all();
+    if (thread.joinable()) {
+      thread.join();
+    }
   }
 
   namespace {
@@ -227,6 +249,19 @@ namespace gabs::virtual_display {
     video.dd.resolution_option = config::video_t::dd_t::resolution_option_e::automatic;
     video.dd.refresh_rate_option = config::video_t::dd_t::refresh_rate_option_e::automatic;
     return video;
+  }
+
+  bool should_revert_on_session_end(bool upstream_decision) {
+    return upstream_decision || instance().active_device_id().has_value();
+  }
+
+  void prepare_launch(display_choice_e choice, const std::function<void()> &cancel_pending_revert, const std::function<void()> &revert_now) {
+    cancel_pending_revert();
+    if (choice != display_choice_e::virtual_display && instance().active_device_id()) {
+      BOOST_LOG(info) << "Gabs Remote: this launch does not use the virtual display; restoring the physical displays first"sv;
+      revert_now();
+      instance().release_all();
+    }
   }
 
 #ifndef _WIN32

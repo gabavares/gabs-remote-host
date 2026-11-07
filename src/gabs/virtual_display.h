@@ -161,18 +161,22 @@ namespace gabs::virtual_display {
     std::optional<std::string> active_device_id() const;
 
   private:
-    void start_keep_alive_unlocked();
-    void stop_keep_alive_unlocked(std::unique_lock<std::mutex> &lock);
+    void start_keep_alive();
+    void stop_keep_alive();
     void remove_active_unlocked();
 
     std::unique_ptr<driver_t> driver;
     device_id_for_t device_id_for;
 
     mutable std::mutex mutex;
-    std::condition_variable wake;
     std::optional<std::string> active_client;
     std::optional<mode_t> active_mode;
+    std::optional<std::string> active_display_name;
     std::optional<std::string> active_id;
+
+    // The keep-alive thread never takes `mutex`, so it keeps pinging while `ensure` waits on the driver.
+    std::mutex keep_alive_mutex;
+    std::condition_variable keep_alive_wake;
     bool keep_alive_running {false};
     std::thread keep_alive_thread;
   };
@@ -206,6 +210,28 @@ namespace gabs::virtual_display {
    *         otherwise `base` with the virtual display as the only display at the requested mode.
    */
   std::optional<config::video_t> video_config_for_launch(const config::video_t &base, display_choice_e choice, const std::string &client_uid, const mode_t &mode);
+
+  /**
+   * @brief Whether the display configuration must be reverted when the last session ends.
+   *
+   * Upstream keeps the configuration while an app is still "running" (the Desktop app never stops),
+   * but a virtual display must go away on disconnect, or the physical monitors stay off.
+   * @param upstream_decision What upstream decided (`config_revert_on_disconnect` or no app running).
+   * @return True to revert.
+   */
+  bool should_revert_on_session_end(bool upstream_decision);
+
+  /**
+   * @brief Prepare the displays before a launch/resume configures them.
+   *
+   * Always cancels a pending (delayed) revert first, so it cannot remove a virtual display that this
+   * launch is about to reuse. When the client does not want a virtual display but one is active,
+   * reverts right away and removes it, so the capture goes back to the physical monitor.
+   * @param choice Client's `grDisplay` choice.
+   * @param cancel_pending_revert Stops any scheduled revert (waits for one in progress).
+   * @param revert_now Reverts the display configuration synchronously.
+   */
+  void prepare_launch(display_choice_e choice, const std::function<void()> &cancel_pending_revert, const std::function<void()> &revert_now);
 
   /**
    * @brief Driver for this platform (SudoVDA on Windows, none elsewhere).

@@ -129,6 +129,16 @@ namespace display_device {
   std::optional<std::string> device_id_from_display_name(const std::string &display_name);
 
   /**
+   * @brief Gabs Remote: stop any scheduled revert, waiting for one in progress to finish.
+   */
+  void cancel_pending_revert();
+
+  /**
+   * @brief Gabs Remote: revert the display configuration right now, in the calling thread.
+   */
+  void revert_configuration_now();
+
+  /**
    * @brief Reset persisted display state and the captured initial state.
    *
    * This is normally used to get out of the "broken" state where the algorithm wants

@@ -1424,6 +1424,7 @@ namespace nvhttp {
       // the moment. This should be done before probing encoders as it could
       // change the active displays.
       // Gabs Remote: the client may ask for a virtual display (grDisplay=virtual) or to mirror without touching displays.
+      gabs::virtual_display::prepare_launch(launch_session->gr_display, display_device::cancel_pending_revert, display_device::revert_configuration_now);
       if (const auto gabs_video {gabs::virtual_display::video_config_for_launch(
             config::video,
             launch_session->gr_display,
@@ -1544,6 +1545,7 @@ namespace nvhttp {
       // the moment. This should be done before probing encoders as it could
       // change the active displays.
       // Gabs Remote: the client may ask for a virtual display (grDisplay=virtual) or to mirror without touching displays.
+      gabs::virtual_display::prepare_launch(launch_session->gr_display, display_device::cancel_pending_revert, display_device::revert_configuration_now);
       if (const auto gabs_video {gabs::virtual_display::video_config_for_launch(
             config::video,
             launch_session->gr_display,

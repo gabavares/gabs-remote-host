@@ -1009,6 +1009,21 @@ namespace display_device {
     revert_configuration_unlocked(revert_option_e::try_indefinitely_with_delay);
   }
 
+  void cancel_pending_revert() {
+    std::lock_guard lock {DD_DATA.mutex};
+    if (!DD_DATA.sm_instance) {
+      return;
+    }
+    DD_DATA.sm_instance->execute([](auto &, auto &stop_token) {
+      stop_token.requestStop();
+    });
+  }
+
+  void revert_configuration_now() {
+    std::lock_guard lock {DD_DATA.mutex};
+    revert_configuration_unlocked(revert_option_e::try_once);
+  }
+
   bool reset_persistence() {
     std::lock_guard lock {DD_DATA.mutex};
     if (!DD_DATA.sm_instance) {
