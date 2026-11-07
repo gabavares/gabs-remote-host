@@ -9,6 +9,7 @@
 #include <utility>
 
 // lib includes
+#include <nlohmann/json.hpp>
 #include <openssl/evp.h>
 
 // local includes
@@ -122,6 +123,7 @@ namespace gabs::virtual_display {
     active_mode = mode;
     active_display_name = display_name;
     active_id = device_id;
+    created_ids.insert(*device_id);
     return active_id;
   }
 
@@ -154,6 +156,16 @@ namespace gabs::virtual_display {
   std::optional<std::string> manager_t::active_device_id() const {
     std::lock_guard lock {mutex};
     return active_id;
+  }
+
+  bool manager_t::matches(const std::string &client_uid, const mode_t &mode) const {
+    std::lock_guard lock {mutex};
+    return active_id && active_client == client_uid && active_mode == mode;
+  }
+
+  std::set<std::string> manager_t::known_device_ids() const {
+    std::lock_guard lock {mutex};
+    return created_ids;
   }
 
   std::optional<std::string> manager_t::active_display() const {
@@ -264,10 +276,17 @@ namespace gabs::virtual_display {
     return upstream_decision && !instance().active_device_id().has_value();
   }
 
-  void prepare_launch(display_choice_e choice, const std::function<void()> &cancel_pending_revert, const std::function<void()> &revert_now) {
+  void prepare_launch(display_choice_e choice, const std::string &client_uid, const mode_t &mode, const std::function<void()> &cancel_pending_revert, const std::function<void()> &revert_now) {
     cancel_pending_revert();
-    if (choice != display_choice_e::virtual_display && instance().active_device_id()) {
+    if (!instance().active_device_id()) {
+      return;
+    }
+    if (choice != display_choice_e::virtual_display) {
       BOOST_LOG(info) << "Gabs Remote: this launch does not use the virtual display; restoring the physical displays first"sv;
+      revert_now();
+      instance().release_all();
+    } else if (!instance().matches(client_uid, mode)) {
+      BOOST_LOG(info) << "Gabs Remote: this launch needs another virtual display; restoring the physical displays first"sv;
       revert_now();
       instance().release_all();
     }
@@ -341,5 +360,61 @@ namespace gabs::virtual_display {
     return nullptr;
   }
 #endif
+
+  std::string strip_virtual_displays(const std::string &state_json, const std::set<std::string> &virtual_ids) {
+    if (virtual_ids.empty()) {
+      return state_json;
+    }
+    auto state = nlohmann::json::parse(state_json, nullptr, false);
+    if (state.is_discarded() || !state.is_object()) {
+      return state_json;
+    }
+    const auto is_virtual {[&virtual_ids](const nlohmann::json &id) {
+      return id.is_string() && virtual_ids.contains(id.get<std::string>());
+    }};
+
+    if (auto initial {state.find("initial")}; initial != state.end() && initial->is_object()) {
+      if (auto topology {initial->find("topology")}; topology != initial->end() && topology->is_array()) {
+        nlohmann::json kept = nlohmann::json::array();
+        for (auto group : *topology) {
+          if (!group.is_array()) {
+            kept.push_back(group);
+            continue;
+          }
+          group.erase(std::remove_if(group.begin(), group.end(), is_virtual), group.end());
+          if (!group.empty()) {
+            kept.push_back(std::move(group));
+          }
+        }
+        if (kept.empty()) {
+          return state_json;  // Only virtual displays: better to keep the record as it is.
+        }
+        *topology = std::move(kept);
+      }
+      if (auto primary {initial->find("primary_devices")}; primary != initial->end() && primary->is_array()) {
+        auto kept = *primary;
+        kept.erase(std::remove_if(kept.begin(), kept.end(), is_virtual), kept.end());
+        if (!kept.empty()) {
+          *primary = std::move(kept);
+        }
+      }
+    }
+
+    if (auto modified {state.find("modified")}; modified != state.end() && modified->is_object()) {
+      for (const auto *key : {"original_modes", "original_hdr_states"}) {
+        if (auto settings {modified->find(key)}; settings != modified->end() && settings->is_object()) {
+          for (const auto &id : virtual_ids) {
+            settings->erase(id);
+          }
+        }
+      }
+      for (const auto *key : {"original_primary_device", "interim_primary_device"}) {
+        if (auto device {modified->find(key)}; device != modified->end() && is_virtual(*device)) {
+          *device = "";
+        }
+      }
+    }
+    return state.dump(2);
+  }
 
 }  // namespace gabs::virtual_display

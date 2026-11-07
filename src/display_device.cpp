@@ -72,7 +72,14 @@ namespace display_device {
        * @copydoc SettingsPersistenceInterface::store
        */
       [[nodiscard]] bool store(const std::vector<std::uint8_t> &data) override {
-        if (!inner->store(data)) {
+        // Gabs Remote: the saved file never names a virtual display (its id changes when it is made again,
+        // and a revert waiting for it would never finish after a host restart).
+        auto cleaned {data};
+        if (const auto ids {gabs::virtual_display::instance().known_device_ids()}; !data.empty() && !ids.empty()) {
+          const auto stripped {gabs::virtual_display::strip_virtual_displays(std::string {data.begin(), data.end()}, ids)};
+          cleaned.assign(stripped.begin(), stripped.end());
+        }
+        if (!inner->store(cleaned)) {
           return false;
         }
 

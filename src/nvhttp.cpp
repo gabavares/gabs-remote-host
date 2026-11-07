@@ -1428,13 +1428,10 @@ namespace nvhttp {
       // the moment. This should be done before probing encoders as it could
       // change the active displays.
       // Gabs Remote: the client may ask for a virtual display (grDisplay=virtual) or to mirror without touching displays.
-      gabs::virtual_display::prepare_launch(launch_session->gr_display, display_device::cancel_pending_revert, display_device::revert_configuration_now);
-      if (const auto gabs_video {gabs::virtual_display::video_config_for_launch(
-            config::video,
-            launch_session->gr_display,
-            gabs::virtual_display::client_uid_from(launch_session->client_cert, launch_session->unique_id),
-            {launch_session->width, launch_session->height, gabs::virtual_display::refresh_hz_from_fps(launch_session->fps)}
-          )}) {
+      const auto gabs_client {gabs::virtual_display::client_uid_from(launch_session->client_cert, launch_session->unique_id)};
+      const gabs::virtual_display::mode_t gabs_mode {launch_session->width, launch_session->height, gabs::virtual_display::refresh_hz_from_fps(launch_session->fps)};
+      gabs::virtual_display::prepare_launch(launch_session->gr_display, gabs_client, gabs_mode, display_device::cancel_pending_revert, display_device::revert_configuration_now);
+      if (const auto gabs_video {gabs::virtual_display::video_config_for_launch(config::video, launch_session->gr_display, gabs_client, gabs_mode)}) {
         display_device::configure_display(*gabs_video, *launch_session);
         gabs::virtual_display::apply_scale_for_launch(launch_session->gr_display, launch_session->gr_scale);
       }
@@ -1551,13 +1548,10 @@ namespace nvhttp {
       // the moment. This should be done before probing encoders as it could
       // change the active displays.
       // Gabs Remote: the client may ask for a virtual display (grDisplay=virtual) or to mirror without touching displays.
-      gabs::virtual_display::prepare_launch(launch_session->gr_display, display_device::cancel_pending_revert, display_device::revert_configuration_now);
-      if (const auto gabs_video {gabs::virtual_display::video_config_for_launch(
-            config::video,
-            launch_session->gr_display,
-            gabs::virtual_display::client_uid_from(launch_session->client_cert, launch_session->unique_id),
-            {launch_session->width, launch_session->height, gabs::virtual_display::refresh_hz_from_fps(launch_session->fps)}
-          )}) {
+      const auto gabs_client {gabs::virtual_display::client_uid_from(launch_session->client_cert, launch_session->unique_id)};
+      const gabs::virtual_display::mode_t gabs_mode {launch_session->width, launch_session->height, gabs::virtual_display::refresh_hz_from_fps(launch_session->fps)};
+      gabs::virtual_display::prepare_launch(launch_session->gr_display, gabs_client, gabs_mode, display_device::cancel_pending_revert, display_device::revert_configuration_now);
+      if (const auto gabs_video {gabs::virtual_display::video_config_for_launch(config::video, launch_session->gr_display, gabs_client, gabs_mode)}) {
         display_device::configure_display(*gabs_video, *launch_session);
         gabs::virtual_display::apply_scale_for_launch(launch_session->gr_display, launch_session->gr_scale);
       }

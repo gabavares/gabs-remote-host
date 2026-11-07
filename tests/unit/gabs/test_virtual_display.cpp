@@ -16,6 +16,9 @@
 // local includes
 #include <src/config.h>
 #include <src/gabs/virtual_display.h>
+
+// lib includes
+#include <nlohmann/json.hpp>
 #include <thread>
 
 namespace vd = gabs::virtual_display;
@@ -271,9 +274,9 @@ TEST_F(VirtualDisplayFixture, SessionEndKeepsTheVirtualDisplayWhileTheAppRuns) {
 TEST_F(VirtualDisplayFixture, PrepareLaunchAlwaysCancelsPendingRevert) {
   install_fake();
   int cancels = 0, reverts = 0;
-  vd::prepare_launch(vd::display_choice_e::virtual_display, [&]() { ++cancels; }, [&]() { ++reverts; });
-  vd::prepare_launch(vd::display_choice_e::mirror, [&]() { ++cancels; }, [&]() { ++reverts; });
-  vd::prepare_launch(vd::display_choice_e::upstream, [&]() { ++cancels; }, [&]() { ++reverts; });
+  vd::prepare_launch(vd::display_choice_e::virtual_display, "tab", {2800, 1752, 120}, [&]() { ++cancels; }, [&]() { ++reverts; });
+  vd::prepare_launch(vd::display_choice_e::mirror, "tab", {2800, 1752, 120}, [&]() { ++cancels; }, [&]() { ++reverts; });
+  vd::prepare_launch(vd::display_choice_e::upstream, "tab", {2800, 1752, 120}, [&]() { ++cancels; }, [&]() { ++reverts; });
   EXPECT_EQ(cancels, 3);
   EXPECT_EQ(reverts, 0);  // nothing virtual was active
 }
@@ -282,7 +285,7 @@ TEST_F(VirtualDisplayFixture, PrepareMirrorAfterVirtualRevertsAndReleases) {
   install_fake();
   vd::instance().ensure("tab", {2800, 1752, 120});
   int reverts = 0;
-  vd::prepare_launch(vd::display_choice_e::mirror, []() {}, [&]() { ++reverts; });
+  vd::prepare_launch(vd::display_choice_e::mirror, "tab", {2800, 1752, 120}, []() {}, [&]() { ++reverts; });
   EXPECT_EQ(reverts, 1);
   EXPECT_FALSE(vd::instance().active_device_id().has_value());
   EXPECT_EQ(vd::effective_output_name("cfg"), "cfg");
@@ -292,7 +295,7 @@ TEST_F(VirtualDisplayFixture, PrepareUpstreamAfterVirtualRevertsAndReleases) {
   install_fake();
   vd::instance().ensure("tab", {2800, 1752, 120});
   int reverts = 0;
-  vd::prepare_launch(vd::display_choice_e::upstream, []() {}, [&]() { ++reverts; });
+  vd::prepare_launch(vd::display_choice_e::upstream, "tab", {2800, 1752, 120}, []() {}, [&]() { ++reverts; });
   EXPECT_EQ(reverts, 1);
   EXPECT_FALSE(vd::instance().active_device_id().has_value());
 }
@@ -301,7 +304,7 @@ TEST_F(VirtualDisplayFixture, PrepareVirtualKeepsActiveDisplay) {
   install_fake();
   vd::instance().ensure("tab", {2800, 1752, 120});
   int reverts = 0;
-  vd::prepare_launch(vd::display_choice_e::virtual_display, []() {}, [&]() { ++reverts; });
+  vd::prepare_launch(vd::display_choice_e::virtual_display, "tab", {2800, 1752, 120}, []() {}, [&]() { ++reverts; });
   EXPECT_EQ(reverts, 0);
   EXPECT_TRUE(vd::instance().active_device_id().has_value());
 }
@@ -330,4 +333,71 @@ TEST(VirtualDisplayScale, StepIsRelativeToRecommended) {
 
 TEST(VirtualDisplayLaunch, DescribesLaunchForTheLog) {
   EXPECT_EQ(vd::describe_launch("2800x1752x120", "virtual", "150"), "mode=2800x1752x120 grDisplay=virtual grScale=150");
+}
+
+namespace {
+  // The record left on Gab's PC on 07/11/2026: the initial topology captured a virtual display
+  // ({20446ed1...}) that no longer existed, so every revert failed.
+  constexpr auto SAVED_STATE {R"({
+  "initial": {
+    "primary_devices": ["{8a026386-1a54-5582-bb59-da91bf50b019}"],
+    "topology": [
+      ["{0abb1bc2-12b5-574c-91f4-8895fff08b1c}"],
+      ["{8a026386-1a54-5582-bb59-da91bf50b019}"],
+      ["{def2e5a0-c892-56cc-9240-58ced720f5a6}"],
+      ["{20446ed1-187f-5b73-817b-a18bf8fb619c}"]
+    ]
+  },
+  "modified": {
+    "original_hdr_states": {"{20446ed1-187f-5b73-817b-a18bf8fb619c}": null, "{541b80b8-e806-5643-bcbc-f7205ec5f82d}": null},
+    "original_modes": {
+      "{20446ed1-187f-5b73-817b-a18bf8fb619c}": {"refresh_rate": {"denominator": 1, "numerator": 120}, "resolution": {"height": 1752, "width": 2800}},
+      "{541b80b8-e806-5643-bcbc-f7205ec5f82d}": {"refresh_rate": {"denominator": 1, "numerator": 120}, "resolution": {"height": 1752, "width": 2800}}
+    },
+    "original_primary_device": "",
+    "topology": [["{541b80b8-e806-5643-bcbc-f7205ec5f82d}"]]
+  }
+})"};
+}  // namespace
+
+TEST(VirtualDisplayState, StripsVirtualDisplaysFromTheSavedState) {
+  const auto stripped = nlohmann::json::parse(vd::strip_virtual_displays(SAVED_STATE, {"{20446ed1-187f-5b73-817b-a18bf8fb619c}", "{541b80b8-e806-5643-bcbc-f7205ec5f82d}"}));
+  EXPECT_EQ(stripped["initial"]["topology"], nlohmann::json::parse(R"([["{0abb1bc2-12b5-574c-91f4-8895fff08b1c}"], ["{8a026386-1a54-5582-bb59-da91bf50b019}"], ["{def2e5a0-c892-56cc-9240-58ced720f5a6}"]])"));
+  EXPECT_EQ(stripped["initial"]["primary_devices"], nlohmann::json::parse(R"(["{8a026386-1a54-5582-bb59-da91bf50b019}"])"));
+  EXPECT_TRUE(stripped["modified"]["original_modes"].empty());
+  EXPECT_TRUE(stripped["modified"]["original_hdr_states"].empty());
+}
+
+TEST(VirtualDisplayState, KeepsPhysicalDisplaysAndUnknownIds) {
+  const auto stripped = nlohmann::json::parse(vd::strip_virtual_displays(SAVED_STATE, {"{541b80b8-e806-5643-bcbc-f7205ec5f82d}"}));
+  EXPECT_EQ(stripped["initial"]["topology"].size(), 4);  // {20446ed1...} is not known as virtual here
+  EXPECT_EQ(stripped["modified"]["original_modes"].size(), 1);
+}
+
+TEST(VirtualDisplayState, NeverLeavesTheInitialTopologyEmpty) {
+  const auto only_virtual {R"({"initial": {"primary_devices": ["{v}"], "topology": [["{v}"]]}, "modified": {"original_modes": {}, "original_hdr_states": {}, "original_primary_device": "", "topology": [["{v}"]]}})"};
+  EXPECT_EQ(nlohmann::json::parse(vd::strip_virtual_displays(only_virtual, {"{v}"})), nlohmann::json::parse(only_virtual));
+}
+
+TEST(VirtualDisplayState, LeavesAnythingElseAlone) {
+  EXPECT_EQ(vd::strip_virtual_displays("", {"{v}"}), "");
+  EXPECT_EQ(vd::strip_virtual_displays("not json", {"{v}"}), "not json");
+  EXPECT_EQ(vd::strip_virtual_displays(SAVED_STATE, {}), SAVED_STATE);
+}
+
+TEST_F(VirtualDisplayFixture, ManagerRemembersTheDisplaysItCreated) {
+  install_fake();
+  vd::instance().ensure("tab", {2800, 1752, 120});
+  vd::instance().release_all();
+  EXPECT_TRUE(vd::instance().known_device_ids().contains(DEVICE_ID));
+}
+
+TEST_F(VirtualDisplayFixture, PrepareVirtualWithAnotherModeRevertsFirst) {
+  install_fake();
+  vd::instance().ensure("tab", {2800, 1752, 120});
+  int reverts = 0;
+  // Profile changed while the PC was kept ready: undo while the old display still exists.
+  vd::prepare_launch(vd::display_choice_e::virtual_display, "tab", {1920, 1080, 120}, []() {}, [&]() { ++reverts; });
+  EXPECT_EQ(reverts, 1);
+  EXPECT_FALSE(vd::instance().active_device_id().has_value());
 }

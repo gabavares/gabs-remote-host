@@ -16,6 +16,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <set>
 #include <string>
 #include <string_view>
 #include <thread>
@@ -166,6 +167,20 @@ namespace gabs::virtual_display {
      */
     std::optional<std::string> active_display() const;
 
+    /**
+     * @brief Whether the active virtual display belongs to this client and has this mode.
+     * @param client_uid Client identifier.
+     * @param mode Mode to compare.
+     * @return True when `ensure` would reuse the active display.
+     */
+    bool matches(const std::string &client_uid, const mode_t &mode) const;
+
+    /**
+     * @brief Device ids of every virtual display this host process created (they change when a display is made again).
+     * @return The ids.
+     */
+    std::set<std::string> known_device_ids() const;
+
   private:
     void start_keep_alive();
     void stop_keep_alive();
@@ -179,6 +194,7 @@ namespace gabs::virtual_display {
     std::optional<mode_t> active_mode;
     std::optional<std::string> active_display_name;
     std::optional<std::string> active_id;
+    std::set<std::string> created_ids;
 
     // The keep-alive thread never takes `mutex`, so it keeps pinging while `ensure` waits on the driver.
     std::mutex keep_alive_mutex;
@@ -232,13 +248,29 @@ namespace gabs::virtual_display {
    * @brief Prepare the displays before a launch/resume configures them.
    *
    * Always cancels a pending (delayed) revert first, so it cannot remove a virtual display that this
-   * launch is about to reuse. When the client does not want a virtual display but one is active,
-   * reverts right away and removes it, so the capture goes back to the physical monitor.
+   * launch is about to reuse. When a virtual display is active and this launch will not reuse it (no
+   * virtual display wanted, or another client or mode, e.g. a profile change while the PC was kept
+   * ready), reverts right away and removes it: the revert needs the display that is in the saved state.
    * @param choice Client's `grDisplay` choice.
+   * @param client_uid Client identifier.
+   * @param mode Requested mode.
    * @param cancel_pending_revert Stops any scheduled revert (waits for one in progress).
    * @param revert_now Reverts the display configuration synchronously.
    */
-  void prepare_launch(display_choice_e choice, const std::function<void()> &cancel_pending_revert, const std::function<void()> &revert_now);
+  void prepare_launch(display_choice_e choice, const std::string &client_uid, const mode_t &mode, const std::function<void()> &cancel_pending_revert, const std::function<void()> &revert_now);
+
+  /**
+   * @brief Remove virtual displays from the display settings saved for the revert.
+   *
+   * The display settings library saves the topology of the PC before a launch, and Windows has already
+   * added the new virtual display to it. A virtual display does not come back after the host restarts (its
+   * id changes), so the library would wait forever for it and every revert would fail. The saved file
+   * therefore keeps only the physical displays; the initial topology is never left empty.
+   * @param state_json Saved state (JSON) of the display settings library.
+   * @param virtual_ids Device ids of virtual displays.
+   * @return The state without those displays, or `state_json` unchanged if it cannot be read.
+   */
+  std::string strip_virtual_displays(const std::string &state_json, const std::set<std::string> &virtual_ids);
 
   /**
    * @brief Parse the `grScale` launch argument (Windows display scale in percent).
