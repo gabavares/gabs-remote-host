@@ -3,6 +3,8 @@
  * @brief Gabs Remote: per-client virtual display requested with `grDisplay`.
  */
 // standard includes
+#include <algorithm>
+#include <charconv>
 #include <chrono>
 #include <utility>
 
@@ -154,6 +156,11 @@ namespace gabs::virtual_display {
     return active_id;
   }
 
+  std::optional<std::string> manager_t::active_display() const {
+    std::lock_guard lock {mutex};
+    return active_id ? active_display_name : std::nullopt;
+  }
+
   void manager_t::remove_active_unlocked() {
     if (driver && active_client) {
       driver->remove(*active_client);
@@ -264,7 +271,70 @@ namespace gabs::virtual_display {
     }
   }
 
+  namespace {
+    // Windows display scale steps, in the order Windows indexes them.
+    constexpr std::array<int, 12> DPI_STEPS {100, 125, 150, 175, 200, 225, 250, 300, 350, 400, 450, 500};
+
+    std::optional<int> dpi_index(int percent) {
+      const auto it {std::find(DPI_STEPS.begin(), DPI_STEPS.end(), percent)};
+      if (it == DPI_STEPS.end()) {
+        return std::nullopt;
+      }
+      return static_cast<int>(it - DPI_STEPS.begin());
+    }
+  }  // namespace
+
+  std::optional<int> parse_scale(std::string_view arg) {
+    int value = 0;
+    const auto [ptr, ec] {std::from_chars(arg.data(), arg.data() + arg.size(), value)};
+    if (ec != std::errc {} || ptr != arg.data() + arg.size() || !dpi_index(value)) {
+      return std::nullopt;
+    }
+    return value;
+  }
+
+  std::optional<int> dpi_relative_step(int percent, int min_relative) {
+    const auto index {dpi_index(percent)};
+    if (!index) {
+      return std::nullopt;
+    }
+    return *index + min_relative;  // recommended index = -min_relative
+  }
+
+  std::string describe_launch(std::string_view mode, std::string_view gr_display, std::string_view gr_scale) {
+    std::string text {"mode="};
+    text += mode;
+    text += " grDisplay=";
+    text += gr_display;
+    text += " grScale=";
+    text += gr_scale;
+    return text;
+  }
+
+  std::optional<std::string> active_display_name() {
+    return instance().active_display();
+  }
+
+  void apply_scale_for_launch(display_choice_e choice, std::optional<int> scale) {
+    if (choice != display_choice_e::virtual_display || !scale) {
+      return;
+    }
+    const auto name {active_display_name()};
+    if (!name) {
+      return;
+    }
+    if (set_display_scale(*name, *scale)) {
+      BOOST_LOG(info) << "Gabs Remote: Windows scale of "sv << *name << " set to "sv << *scale << '%';
+    } else {
+      BOOST_LOG(warning) << "Gabs Remote: could not set the Windows scale of "sv << *name << " to "sv << *scale << '%';
+    }
+  }
+
 #ifndef _WIN32
+  bool set_display_scale(const std::string &, int) {
+    return false;
+  }
+
   std::unique_ptr<driver_t> make_platform_driver() {
     return nullptr;
   }

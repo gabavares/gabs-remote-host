@@ -162,6 +162,72 @@ namespace gabs::virtual_display {
     };
   }  // namespace
 
+  namespace {
+    // Undocumented DisplayConfig DPI requests (used by Windows' own Settings app).
+    constexpr auto DISPLAYCONFIG_DEVICE_INFO_GET_DPI_SCALE {static_cast<DISPLAYCONFIG_DEVICE_INFO_TYPE>(-3)};
+    constexpr auto DISPLAYCONFIG_DEVICE_INFO_SET_DPI_SCALE {static_cast<DISPLAYCONFIG_DEVICE_INFO_TYPE>(-4)};
+
+    struct dpi_scale_get_t {
+      DISPLAYCONFIG_DEVICE_INFO_HEADER header;
+      std::int32_t min_relative;
+      std::int32_t current_relative;
+      std::int32_t max_relative;
+    };
+
+    struct dpi_scale_set_t {
+      DISPLAYCONFIG_DEVICE_INFO_HEADER header;
+      std::int32_t relative;
+    };
+  }  // namespace
+
+  bool set_display_scale(const std::string &display_name, int percent) {
+    UINT32 path_count = 0, mode_count = 0;
+    if (GetDisplayConfigBufferSizes(QDC_ONLY_ACTIVE_PATHS, &path_count, &mode_count) != ERROR_SUCCESS) {
+      return false;
+    }
+    std::vector<DISPLAYCONFIG_PATH_INFO> paths(path_count);
+    std::vector<DISPLAYCONFIG_MODE_INFO> modes(mode_count);
+    if (QueryDisplayConfig(QDC_ONLY_ACTIVE_PATHS, &path_count, paths.data(), &mode_count, modes.data(), nullptr) != ERROR_SUCCESS) {
+      return false;
+    }
+    paths.resize(path_count);
+
+    for (const auto &path : paths) {
+      DISPLAYCONFIG_SOURCE_DEVICE_NAME source {};
+      source.header.type = DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME;
+      source.header.size = sizeof(source);
+      source.header.adapterId = path.sourceInfo.adapterId;
+      source.header.id = path.sourceInfo.id;
+      if (DisplayConfigGetDeviceInfo(&source.header) != ERROR_SUCCESS ||
+          utf_utils::to_utf8(std::wstring {source.viewGdiDeviceName}) != display_name) {
+        continue;
+      }
+
+      dpi_scale_get_t current {};
+      current.header.type = DISPLAYCONFIG_DEVICE_INFO_GET_DPI_SCALE;
+      current.header.size = sizeof(current);
+      current.header.adapterId = path.sourceInfo.adapterId;
+      current.header.id = path.sourceInfo.id;
+      if (DisplayConfigGetDeviceInfo(&current.header) != ERROR_SUCCESS) {
+        return false;
+      }
+      const auto step {dpi_relative_step(percent, current.min_relative)};
+      if (!step || *step < current.min_relative || *step > current.max_relative) {
+        BOOST_LOG(warning) << "Gabs Remote: scale "sv << percent << "% is outside what Windows allows for "sv << display_name;
+        return false;
+      }
+
+      dpi_scale_set_t request {};
+      request.header.type = DISPLAYCONFIG_DEVICE_INFO_SET_DPI_SCALE;
+      request.header.size = sizeof(request);
+      request.header.adapterId = path.sourceInfo.adapterId;
+      request.header.id = path.sourceInfo.id;
+      request.relative = *step;
+      return DisplayConfigSetDeviceInfo(&request.header) == ERROR_SUCCESS;
+    }
+    return false;
+  }
+
   std::unique_ptr<driver_t> make_platform_driver() {
     return std::make_unique<sudovda_driver_t>();
   }

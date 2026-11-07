@@ -303,3 +303,29 @@ TEST_F(VirtualDisplayFixture, PrepareVirtualKeepsActiveDisplay) {
   EXPECT_EQ(reverts, 0);
   EXPECT_TRUE(vd::instance().active_device_id().has_value());
 }
+
+TEST(VirtualDisplayScale, ParsesScale) {
+  EXPECT_EQ(vd::parse_scale("150"), std::optional<int> {150});
+  EXPECT_EQ(vd::parse_scale("100"), std::optional<int> {100});
+  EXPECT_EQ(vd::parse_scale("125"), std::optional<int> {125});
+  EXPECT_EQ(vd::parse_scale(""), std::nullopt);
+  EXPECT_EQ(vd::parse_scale("0"), std::nullopt);
+  EXPECT_EQ(vd::parse_scale("130"), std::nullopt);  // Windows only has fixed steps
+  EXPECT_EQ(vd::parse_scale("abc"), std::nullopt);
+}
+
+TEST(VirtualDisplayScale, StepIsRelativeToRecommended) {
+  // Windows sets DPI as a step relative to the recommended one; min_rel = -(index of recommended).
+  // Recommended 175% (index 3): min_rel = -3.
+  EXPECT_EQ(vd::dpi_relative_step(150, -3), std::optional<int> {-1});
+  EXPECT_EQ(vd::dpi_relative_step(175, -3), std::optional<int> {0});
+  EXPECT_EQ(vd::dpi_relative_step(100, -3), std::optional<int> {-3});
+  EXPECT_EQ(vd::dpi_relative_step(200, -3), std::optional<int> {1});
+  // Recommended 100%: min_rel = 0.
+  EXPECT_EQ(vd::dpi_relative_step(125, 0), std::optional<int> {1});
+  EXPECT_EQ(vd::dpi_relative_step(130, 0), std::nullopt);
+}
+
+TEST(VirtualDisplayLaunch, DescribesLaunchForTheLog) {
+  EXPECT_EQ(vd::describe_launch("2800x1752x120", "virtual", "150"), "mode=2800x1752x120 grDisplay=virtual grScale=150");
+}

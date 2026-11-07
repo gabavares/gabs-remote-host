@@ -160,6 +160,12 @@ namespace gabs::virtual_display {
      */
     std::optional<std::string> active_device_id() const;
 
+    /**
+     * @brief GDI name of the active virtual display.
+     * @return The name, or empty when no virtual display is active.
+     */
+    std::optional<std::string> active_display() const;
+
   private:
     void start_keep_alive();
     void stop_keep_alive();
@@ -232,6 +238,51 @@ namespace gabs::virtual_display {
    * @param revert_now Reverts the display configuration synchronously.
    */
   void prepare_launch(display_choice_e choice, const std::function<void()> &cancel_pending_revert, const std::function<void()> &revert_now);
+
+  /**
+   * @brief Parse the `grScale` launch argument (Windows display scale in percent).
+   * @param arg Raw value.
+   * @return One of Windows' scale steps (100, 125, ... 500), or empty for anything else (do not change).
+   */
+  std::optional<int> parse_scale(std::string_view arg);
+
+  /**
+   * @brief Step to pass to Windows to get a scale, relative to the recommended scale of the display.
+   * @param percent Target scale in percent.
+   * @param min_relative Lowest relative step Windows reports for the display (minus the index of the recommended scale).
+   * @return The relative step, or empty if `percent` is not a Windows scale step.
+   */
+  std::optional<int> dpi_relative_step(int percent, int min_relative);
+
+  /**
+   * @brief One log line with what the client asked for in the launch.
+   * @param mode `mode` argument (WxHxFPS).
+   * @param gr_display `grDisplay` argument.
+   * @param gr_scale `grScale` argument.
+   * @return Text for the log.
+   */
+  std::string describe_launch(std::string_view mode, std::string_view gr_display, std::string_view gr_scale);
+
+  /**
+   * @brief Set the Windows display scale of a display.
+   * @param display_name GDI name (`\\.\DISPLAYn`).
+   * @param percent Scale in percent (a Windows step).
+   * @return True on success; false on other platforms or failure.
+   */
+  bool set_display_scale(const std::string &display_name, int percent);
+
+  /**
+   * @brief GDI name of the active virtual display.
+   * @return The name, or empty when no virtual display is active.
+   */
+  std::optional<std::string> active_display_name();
+
+  /**
+   * @brief Apply the client's Windows scale to the virtual display, after the displays were configured.
+   * @param choice Client's `grDisplay` choice (only `virtual_display` is scaled).
+   * @param scale Parsed `grScale` (empty = do not change).
+   */
+  void apply_scale_for_launch(display_choice_e choice, std::optional<int> scale);
 
   /**
    * @brief Driver for this platform (SudoVDA on Windows, none elsewhere).
