@@ -26,6 +26,7 @@ extern "C" {
 // local includes
 #include "config.h"
 #include "display_device.h"
+#include "gabs/keyboard_layout.h"  // Gabs Remote
 #include "gabs/virtual_display.h"  // Gabs Remote
 #include "globals.h"
 #include "input.h"
@@ -2322,6 +2323,7 @@ namespace stream {
 
       // If this is the last session, invoke the platform callbacks
       if (--running_sessions == 0) {
+        gabs::keyboard_layout::instance().restore();  // Gabs Remote: the PC keyboard gets its layout back
         // Gabs Remote: a virtual display must go away on disconnect even while the app keeps running.
         bool revert_display_config {gabs::virtual_display::should_revert_on_session_end(config::video.dd.config_revert_on_disconnect)};
         if (proc::proc.running()) {

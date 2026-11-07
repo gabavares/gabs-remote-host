@@ -26,6 +26,7 @@
 // local includes
 #include "config.h"
 #include "display_device.h"
+#include "gabs/keyboard_layout.h"  // Gabs Remote
 #include "gabs/virtual_display.h"  // Gabs Remote
 #include "file_handler.h"
 #include "globals.h"
@@ -520,7 +521,8 @@ namespace nvhttp {
     launch_session->enable_hdr = util::from_view(get_arg(args, "hdrMode", "0"));
     launch_session->gr_display = gabs::virtual_display::parse_display_choice(get_arg(args, "grDisplay", ""));  // Gabs Remote
     launch_session->gr_scale = gabs::virtual_display::parse_scale(get_arg(args, "grScale", ""));  // Gabs Remote
-    BOOST_LOG(info) << "Gabs Remote: launch "sv << gabs::virtual_display::describe_launch(get_arg(args, "mode", ""), get_arg(args, "grDisplay", ""), get_arg(args, "grScale", ""));
+    launch_session->gr_keyboard = gabs::keyboard_layout::parse_layout(get_arg(args, "grKeyboard", ""));  // Gabs Remote
+    BOOST_LOG(info) << "Gabs Remote: launch "sv << gabs::virtual_display::describe_launch(get_arg(args, "mode", ""), get_arg(args, "grDisplay", ""), get_arg(args, "grScale", "")) << " grKeyboard="sv << get_arg(args, "grKeyboard", "");
 
     // Encrypted RTSP is enabled with client reported corever >= 1
     auto corever = util::from_view(get_arg(args, "corever", "0"));
@@ -1436,6 +1438,7 @@ namespace nvhttp {
         display_device::configure_display(*gabs_video, *launch_session);
         gabs::virtual_display::apply_scale_for_launch(launch_session->gr_display, launch_session->gr_scale);
       }
+      gabs::keyboard_layout::instance().apply(launch_session->gr_keyboard);  // Gabs Remote
 
       // Probe encoders again before streaming to ensure our chosen
       // encoder matches the active GPU (which could have changed
@@ -1558,6 +1561,7 @@ namespace nvhttp {
         display_device::configure_display(*gabs_video, *launch_session);
         gabs::virtual_display::apply_scale_for_launch(launch_session->gr_display, launch_session->gr_scale);
       }
+      gabs::keyboard_layout::instance().apply(launch_session->gr_keyboard);  // Gabs Remote
 
       // Probe encoders again before streaming to ensure our chosen
       // encoder matches the active GPU (which could have changed

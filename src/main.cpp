@@ -34,6 +34,7 @@
 // local includes
 #include "confighttp.h"
 #include "display_device.h"
+#include "gabs/keyboard_layout.h"  // Gabs Remote
 #include "gabs/virtual_display.h"  // Gabs Remote
 #include "entry_handler.h"
 #include "globals.h"
@@ -303,6 +304,8 @@ int main(int argc, char *argv[]) {
     display_device::device_id_from_display_name
   ));
   gabs::virtual_display::instance().startup_cleanup();
+  // Gabs Remote: keyboard layout of the session (grKeyboard).
+  gabs::keyboard_layout::install(std::make_unique<gabs::keyboard_layout::switcher_t>(gabs::keyboard_layout::make_platform_backend()));
 
 #ifdef _WIN32
   // Modify relevant NVIDIA control panel settings if the system has corresponding gpu

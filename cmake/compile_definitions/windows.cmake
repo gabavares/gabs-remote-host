@@ -75,6 +75,8 @@ set(PLATFORM_TARGET_FILES
         "${CMAKE_SOURCE_DIR}/src/platform/windows/display_wgc.cpp"
         # Gabs Remote: driver da tela virtual (SudoVDA, decisão 0003)
         "${CMAKE_SOURCE_DIR}/src/platform/windows/gabs/sudovda_driver.cpp"
+        # Gabs Remote: layout de teclado da sessão
+        "${CMAKE_SOURCE_DIR}/src/platform/windows/gabs/keyboard_layout_win.cpp"
         "${CMAKE_SOURCE_DIR}/src/platform/windows/audio.cpp"
         "${CMAKE_SOURCE_DIR}/src/platform/windows/utf_utils.cpp"
         "${CMAKE_SOURCE_DIR}/src/platform/windows/utf_utils.h"

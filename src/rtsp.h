@@ -102,6 +102,7 @@ namespace rtsp_stream {
     std::string client_cert;  ///< PEM certificate for the paired Moonlight client.
     gabs::virtual_display::display_choice_e gr_display {gabs::virtual_display::display_choice_e::upstream};  ///< Gabs Remote: `grDisplay` choice of the client.
     std::optional<int> gr_scale;  ///< Gabs Remote: Windows scale (percent) asked with `grScale`.
+    std::optional<std::string> gr_keyboard;  ///< Gabs Remote: keyboard layout (KLID) asked with `grKeyboard`.
   };
 
   /**
