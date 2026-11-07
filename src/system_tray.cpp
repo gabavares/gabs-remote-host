@@ -9,27 +9,32 @@
    * @def TRAY_ICON
    * @brief Path to the default system tray icon.
    */
-  #define TRAY_ICON WEB_DIR "images/logo-sunshine.svg"
+  #define TRAY_ICON WEB_DIR "images/gabs-remote-256.png"  // Gabs Remote: ícone da marca
   /**
    * @def TRAY_ICON_PLAYING
    * @brief Path to the system tray icon used while streaming.
    */
-  #define TRAY_ICON_PLAYING WEB_DIR "images/sunshine-playing.svg"
+  #define TRAY_ICON_PLAYING WEB_DIR "images/gabs-remote-transmitindo.png"  // Gabs Remote
   /**
    * @def TRAY_ICON_PAUSING
    * @brief Path to the system tray icon used while streaming is paused.
    */
-  #define TRAY_ICON_PAUSING WEB_DIR "images/sunshine-pausing.svg"
+  #define TRAY_ICON_PAUSING WEB_DIR "images/gabs-remote-pausado.png"  // Gabs Remote
   /**
    * @def TRAY_ICON_LOCKED
    * @brief Path to the system tray icon used for pairing requests.
    */
-  #define TRAY_ICON_LOCKED WEB_DIR "images/sunshine-locked.svg"
+  #define TRAY_ICON_LOCKED WEB_DIR "images/gabs-remote-pareando.png"  // Gabs Remote
   /**
    * @def TRAY_ICON_VIRTUALHID
    * @brief Path to the Virtual HID Broker notification icon.
    */
   #define TRAY_ICON_VIRTUALHID WEB_DIR "images/logo-libvirtualhid.svg"
+  /**
+   * @def GABS_TRAY_NAME
+   * @brief Gabs Remote: nome exibido na bandeja (dica e nome do app).
+   */
+  #define GABS_TRAY_NAME "Gabs Remote"
 
   #if defined(_WIN32)
     /**
@@ -291,14 +296,14 @@ namespace system_tray {
   // Tray menu
   static struct tray tray = {
     .icon = TRAY_ICON,
-    .tooltip = PROJECT_NAME,
+    .tooltip = GABS_TRAY_NAME,
   #ifdef __APPLE__
     .cb = tray_native_menu_click_cb,
   #endif
     .menu =
       (struct tray_menu[]) {
         // Tray menu labels currently use the project's English source strings.
-        {.text = "Open Sunshine", .cb = tray_open_ui_cb},
+        {.text = "Abrir Gabs Remote", .cb = tray_open_ui_cb},  // Gabs Remote
         {.text = "-"},
   #if defined(_WIN32) || defined(__APPLE__)
         {.text = "Virtual HID Broker", .submenu = virtualhid_license_menu.data()},
@@ -342,7 +347,7 @@ namespace system_tray {
   void reset_tray_data_for_testing() {
     const std::scoped_lock lock(tray_state_mutex());
     tray.icon = tray.allIconPaths[0];
-    tray.tooltip = PROJECT_NAME;
+    tray.tooltip = GABS_TRAY_NAME;
     tray.notification_icon = nullptr;
     tray.notification_text = nullptr;
     tray.notification_title = nullptr;
@@ -786,7 +791,7 @@ namespace system_tray {
 
     tray_set_log_callback(qt_log_to_boost);
 
-    tray_set_app_info(PROJECT_NAME, PROJECT_NAME, PROJECT_FQDN);
+    tray_set_app_info(PROJECT_NAME, GABS_TRAY_NAME, PROJECT_FQDN);  // Gabs Remote: nome exibido
 
     {
       const std::scoped_lock lock(tray_state_mutex());
@@ -909,7 +914,7 @@ namespace system_tray {
     tray.notification_icon = tray.allIconPaths[0];
     tray.notification_title = "Application Stopped";
     tray.notification_text = msg.c_str();
-    tray.tooltip = PROJECT_NAME;
+    tray.tooltip = GABS_TRAY_NAME;
     tray_update(&tray);
   }
 
@@ -929,7 +934,7 @@ namespace system_tray {
     tray.notification_title = "Incoming Pairing Request";
     tray.notification_text = "Click here to complete the pairing process";
     tray.notification_icon = tray.allIconPaths[1];
-    tray.tooltip = PROJECT_NAME;
+    tray.tooltip = GABS_TRAY_NAME;
     tray.notification_cb = []() {
       launch_ui("/pin");
     };

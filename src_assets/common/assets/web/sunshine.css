@@ -2999,3 +2999,49 @@ p {
         bottom: var(--spacing-sm);
     }
 }
+
+/* ==========================================================================
+   Gabs Remote: cores do design system GAB/S (tools/marca/cores.json no
+   repositório principal). Azul = ação e foco, com texto branco; ácido =
+   destaque e seleção, com texto preto; laranja = perigo, com texto preto.
+   Cor chapada, sem degradê.
+   ========================================================================== */
+
+[data-theme="light"] {
+    --color-primary: #1b34f5;
+    --color-primary-hover: #1b34f5;
+    --color-primary-light: #fbfaf7;
+    --color-on-primary: #ffffff;
+    --color-accent: #e4f53a;
+    --color-accent-hover: #e4f53a;
+    --color-accent-light: #fbfaf7;
+    --color-danger: #ff3b1d;
+    --color-danger-hover: #ff3b1d;
+    --color-danger-light: #fbfaf7;
+    --color-on-danger: #0d0d0d;
+    --navbar-bg: #1b34f5;
+    --navbar-text: #ffffff;
+    --navbar-text-muted: #ffffff;
+}
+
+[data-theme="dark"] {
+    --color-primary: #2a45ff;
+    --color-primary-hover: #2a45ff;
+    --color-primary-light: #0c0c0c;
+    --color-on-primary: #ffffff;
+    --color-accent: #dcf02c;
+    --color-accent-hover: #dcf02c;
+    --color-accent-light: #0c0c0c;
+    --color-danger: #ff5533;
+    --color-danger-hover: #ff5533;
+    --color-danger-light: #0c0c0c;
+    --color-on-danger: #000000;
+    --navbar-bg: #2a45ff;
+    --navbar-text: #ffffff;
+    --navbar-text-muted: #ffffff;
+}
+
+::selection {
+    background-color: var(--color-accent);
+    color: #0d0d0d;
+}

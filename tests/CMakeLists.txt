@@ -130,7 +130,12 @@ if(SUNSHINE_ENABLE_TRAY AND (WIN32 OR APPLE OR CMAKE_SYSTEM_NAME STREQUAL "Linux
     set(SUNSHINE_TRAY_TEST_ICONS
             sunshine-locked.svg
             sunshine-playing.svg
-            sunshine-pausing.svg)
+            sunshine-pausing.svg
+            # Gabs Remote: ícones da bandeja com a marca
+            gabs-remote-256.png
+            gabs-remote-transmitindo.png
+            gabs-remote-pausado.png
+            gabs-remote-pareando.png)
 
     foreach(icon IN LISTS SUNSHINE_TRAY_TEST_ICONS)
         configure_file(

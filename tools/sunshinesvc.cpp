@@ -22,7 +22,7 @@ SERVICE_STATUS service_status;
 HANDLE stop_event;
 HANDLE session_change_event;
 
-constexpr auto SERVICE_NAME = "SunshineService";
+constexpr auto SERVICE_NAME = "GabsRemote";  // Gabs Remote: nome do serviço
 
 /**
  * @brief Handle service control and console-session events from the Windows service manager.

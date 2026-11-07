@@ -2,7 +2,7 @@
   <nav class="navbar navbar-sunshine">
     <div class="container-fluid">
       <span class="navbar-brand" title="Sunshine">
-        <img src="/images/logo-sunshine-45.png" height="45" alt="Sunshine">
+        <img src="/images/gabs-remote-45.png" height="45" alt="Gabs Remote">
       </span>
       <ThemeToggle/>
     </div>

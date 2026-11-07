@@ -143,7 +143,7 @@ namespace service_ctrl {
         return;
       }
 
-      service_handle = OpenServiceA(scm_handle, "SunshineService", service_desired_access);
+      service_handle = OpenServiceA(scm_handle, "GabsRemote", service_desired_access);  // Gabs Remote: nome do serviço
       if (!service_handle) {
         auto winerr = GetLastError();
         BOOST_LOG(error) << "OpenService() failed: "sv << winerr;

@@ -972,7 +972,7 @@ namespace confighttp {
   void getFaviconImage(const resp_https_t &response, const req_https_t &request) {
     print_req(request);
 
-    std::ifstream in(WEB_DIR "images/sunshine.ico", std::ios::binary);
+    std::ifstream in(WEB_DIR "images/favicon.ico", std::ios::binary);  // Gabs Remote: ícone da marca
     SimpleWeb::CaseInsensitiveMultimap headers;
     headers.emplace("Content-Type", "image/x-icon");
     headers.emplace("X-Frame-Options", "DENY");
@@ -990,7 +990,7 @@ namespace confighttp {
   void getSunshineLogoImage(const resp_https_t &response, const req_https_t &request) {
     print_req(request);
 
-    std::ifstream in(WEB_DIR "images/logo-sunshine-45.png", std::ios::binary);
+    std::ifstream in(WEB_DIR "images/gabs-remote-45.png", std::ios::binary);  // Gabs Remote: logo da marca
     SimpleWeb::CaseInsensitiveMultimap headers;
     headers.emplace("Content-Type", "image/png");
     headers.emplace("X-Frame-Options", "DENY");
@@ -2513,8 +2513,8 @@ namespace confighttp {
     server.resource["^/api/virtual-input/status$"]["GET"] = getVirtualInputStatus;
 
     // static/dynamic resources
-    server.resource["^/images/sunshine.ico$"]["GET"] = getFaviconImage;
-    server.resource["^/images/logo-sunshine-45.png$"]["GET"] = getSunshineLogoImage;
+    server.resource["^/images/favicon.ico$"]["GET"] = getFaviconImage;  // Gabs Remote
+    server.resource["^/images/gabs-remote-45.png$"]["GET"] = getSunshineLogoImage;  // Gabs Remote
     server.resource["^/assets\\/.+$"]["GET"] = getAsset;
 
     server.config.reuse_address = true;

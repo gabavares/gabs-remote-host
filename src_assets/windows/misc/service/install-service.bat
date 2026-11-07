@@ -4,7 +4,9 @@ setlocal enabledelayedexpansion
 rem Get sunshine root directory
 for %%I in ("%~dp0\..") do set "ROOT_DIR=%%~fI"
 
-set SERVICE_NAME=SunshineService
+rem Gabs Remote: nome do serviço
+set SERVICE_NAME=GabsRemote
+set OLD_SERVICE_NAME=SunshineService
 set "SERVICE_BIN=%ROOT_DIR%\tools\sunshinesvc.exe"
 set "SERVICE_CONFIG_DIR=%LOCALAPPDATA%\LizardByte\Sunshine"
 set "SERVICE_CONFIG_FILE=%SERVICE_CONFIG_DIR%\service_start_type.txt"
@@ -16,7 +18,11 @@ rem Remove the legacy SunshineSvc service
 net stop sunshinesvc
 sc delete sunshinesvc
 
-rem Check if SunshineService already exists
+rem Gabs Remote: remove o serviço antigo do Sunshine (SunshineService), se existir
+net stop %OLD_SERVICE_NAME%
+sc delete %OLD_SERVICE_NAME%
+
+rem Check if the service already exists
 sc qc %SERVICE_NAME% > nul 2>&1
 if %ERRORLEVEL%==0 (
     rem Stop the existing service if running
@@ -58,10 +64,10 @@ if exist "%SERVICE_CONFIG_FILE%" (
 echo Setting service start type set to: [!SERVICE_START_TYPE!]
 
 rem Run the sc command to create/reconfigure the service
-sc %SC_CMD% %SERVICE_NAME% binPath= "\"%SERVICE_BIN%\"" start= %SERVICE_START_TYPE% DisplayName= "Sunshine Service"
+sc %SC_CMD% %SERVICE_NAME% binPath= "\"%SERVICE_BIN%\"" start= %SERVICE_START_TYPE% DisplayName= "Gabs Remote"
 
 rem Set the description of the service
-sc description %SERVICE_NAME% "Sunshine is a self-hosted game stream host for Moonlight."
+sc description %SERVICE_NAME% "Host do Gabs Remote: acesso remoto do PC pelo tablet."
 
 rem Start the new service
 net start %SERVICE_NAME%

@@ -49,7 +49,8 @@ include_directories(SYSTEM "${CMAKE_SOURCE_DIR}/third-party/ViGEmClient/include"
 
 # sunshine icon
 if(NOT DEFINED SUNSHINE_ICON_PATH)
-    set(SUNSHINE_ICON_PATH "${CMAKE_SOURCE_DIR}/sunshine.ico")
+    # Gabs Remote: ícone da marca no executável
+    set(SUNSHINE_ICON_PATH "${CMAKE_SOURCE_DIR}/src_assets/common/assets/web/public/images/gabs-remote.ico")
 endif()
 
 # Create a separate object library for the RC file with minimal includes
