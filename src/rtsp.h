@@ -12,6 +12,7 @@
 
 // local includes
 #include "crypto.h"
+#include "gabs/virtual_display.h"  // Gabs Remote
 #include "thread_safe.h"
 
 namespace rtsp_stream {
@@ -99,6 +100,7 @@ namespace rtsp_stream {
     std::string rtsp_url_scheme;  ///< URL scheme selected by the RTSP SETUP flow.
     uint32_t rtsp_iv_counter;  ///< Counter value mixed into encrypted RTSP IVs.
     std::string client_cert;  ///< PEM certificate for the paired Moonlight client.
+    gabs::virtual_display::display_choice_e gr_display {gabs::virtual_display::display_choice_e::upstream};  ///< Gabs Remote: `grDisplay` choice of the client.
   };
 
   /**

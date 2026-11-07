@@ -8,6 +8,7 @@
 #include <chrono>
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <string>
 
 // lib includes
@@ -117,6 +118,15 @@ namespace display_device {
    * @examples_end
    */
   void revert_configuration();
+
+  /**
+   * @brief Gabs Remote: find the device id of a display by its platform name (e.g. `\\.\DISPLAY22`).
+   *
+   * Retries every 100 ms for up to 3 s, because a newly created virtual display appears with a delay.
+   * @param display_name Platform display name.
+   * @return The device id, or empty when the display did not appear.
+   */
+  std::optional<std::string> device_id_from_display_name(const std::string &display_name);
 
   /**
    * @brief Reset persisted display state and the captured initial state.

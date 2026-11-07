@@ -34,6 +34,7 @@
 // local includes
 #include "confighttp.h"
 #include "display_device.h"
+#include "gabs/virtual_display.h"  // Gabs Remote
 #include "entry_handler.h"
 #include "globals.h"
 #include "httpcommon.h"
@@ -295,6 +296,13 @@ int main(int argc, char *argv[]) {
   if (!display_device_deinit_guard) {
     BOOST_LOG(error) << "Display device session failed to initialize"sv;
   }
+
+  // Gabs Remote: per-client virtual display (grDisplay), backed by the platform driver.
+  gabs::virtual_display::install(std::make_unique<gabs::virtual_display::manager_t>(
+    gabs::virtual_display::make_platform_driver(),
+    display_device::device_id_from_display_name
+  ));
+  gabs::virtual_display::instance().startup_cleanup();
 
 #ifdef _WIN32
   // Modify relevant NVIDIA control panel settings if the system has corresponding gpu

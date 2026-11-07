@@ -26,6 +26,7 @@
 // local includes
 #include "config.h"
 #include "display_device.h"
+#include "gabs/virtual_display.h"  // Gabs Remote
 #include "file_handler.h"
 #include "globals.h"
 #include "httpcommon.h"
@@ -517,6 +518,7 @@ namespace nvhttp {
     launch_session->continuous_audio = util::from_view(get_arg(args, "continuousAudio", "0"));
     launch_session->gcmap = (int) util::from_view(get_arg(args, "gcmap", "0"));
     launch_session->enable_hdr = util::from_view(get_arg(args, "hdrMode", "0"));
+    launch_session->gr_display = gabs::virtual_display::parse_display_choice(get_arg(args, "grDisplay", ""));  // Gabs Remote
 
     // Encrypted RTSP is enabled with client reported corever >= 1
     auto corever = util::from_view(get_arg(args, "corever", "0"));
@@ -1421,7 +1423,15 @@ namespace nvhttp {
       // We want to prepare display only if there are no active sessions at
       // the moment. This should be done before probing encoders as it could
       // change the active displays.
-      display_device::configure_display(config::video, *launch_session);
+      // Gabs Remote: the client may ask for a virtual display (grDisplay=virtual) or to mirror without touching displays.
+      if (const auto gabs_video {gabs::virtual_display::video_config_for_launch(
+            config::video,
+            launch_session->gr_display,
+            gabs::virtual_display::client_uid_from(launch_session->client_cert, launch_session->unique_id),
+            {launch_session->width, launch_session->height, gabs::virtual_display::refresh_hz_from_fps(launch_session->fps)}
+          )}) {
+        display_device::configure_display(*gabs_video, *launch_session);
+      }
 
       // Probe encoders again before streaming to ensure our chosen
       // encoder matches the active GPU (which could have changed
@@ -1533,7 +1543,15 @@ namespace nvhttp {
       // We want to prepare display only if there are no active sessions at
       // the moment. This should be done before probing encoders as it could
       // change the active displays.
-      display_device::configure_display(config::video, *launch_session);
+      // Gabs Remote: the client may ask for a virtual display (grDisplay=virtual) or to mirror without touching displays.
+      if (const auto gabs_video {gabs::virtual_display::video_config_for_launch(
+            config::video,
+            launch_session->gr_display,
+            gabs::virtual_display::client_uid_from(launch_session->client_cert, launch_session->unique_id),
+            {launch_session->width, launch_session->height, gabs::virtual_display::refresh_hz_from_fps(launch_session->fps)}
+          )}) {
+        display_device::configure_display(*gabs_video, *launch_session);
+      }
 
       // Probe encoders again before streaming to ensure our chosen
       // encoder matches the active GPU (which could have changed

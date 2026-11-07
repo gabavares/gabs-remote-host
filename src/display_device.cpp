@@ -13,6 +13,7 @@
 #include <optional>
 #include <regex>
 #include <string_view>
+#include <thread>
 #include <vector>
 
 // lib includes
@@ -25,6 +26,7 @@
 
 // local includes
 #include "audio.h"
+#include "gabs/virtual_display.h"  // Gabs Remote
 #include "platform/common.h"
 #include "rtsp.h"
 
@@ -788,6 +790,8 @@ namespace display_device {
     void try_revert_settings(const bool try_once, StringSet &tried_out_devices, const std::shared_ptr<watched_settings_persistence_t> &persistence_watch, SettingsManagerInterface &settings_iface, SchedulerStopToken &stop_token) {
       if (try_once) {
         std::ignore = settings_iface.revertSettings();
+        // Gabs Remote: the virtual display goes away only after the physical displays are back.
+        gabs::virtual_display::instance().release_all();
         stop_token.requestStop();
         return;
       }
@@ -818,6 +822,8 @@ namespace display_device {
       // A saved record after success means an unplugged display still has HDR, mode, or primary settings to restore.
       const bool restores_pending {persistence_watch && persistence_watch->has_pending_restores()};
       if (result == Ok && !restores_pending) {
+        // Gabs Remote: the virtual display goes away only after the physical displays are back.
+        gabs::virtual_display::instance().release_all();
         stop_token.requestStop();
         return;
       }
@@ -1016,6 +1022,23 @@ namespace display_device {
       stop_token.requestStop();
       return settings_iface.resetPersistence();
     });
+  }
+
+  std::optional<std::string> device_id_from_display_name(const std::string &display_name) {
+    // Gabs Remote: a new virtual display shows up in the device list with a small delay.
+    const auto deadline {std::chrono::steady_clock::now() + std::chrono::seconds {3}};
+    while (true) {
+      for (const auto &device : enumerate_devices()) {
+        if (device.m_display_name == display_name) {
+          return device.m_device_id;
+        }
+      }
+      if (std::chrono::steady_clock::now() >= deadline) {
+        BOOST_LOG(warning) << "Gabs Remote: display " << display_name << " did not appear in the display device list";
+        return std::nullopt;
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds {100});
+    }
   }
 
   EnumeratedDeviceList enumerate_devices() {
