@@ -54,6 +54,7 @@
 // local includes
 #include "misc.h"
 #include "nvprefs/nvprefs_interface.h"
+#include "src/gabs/network.h"  // Gabs Remote
 #include "src/entry_handler.h"
 #include "src/globals.h"
 #include "src/logging.h"
@@ -1488,6 +1489,10 @@ namespace platf {
   static ULONG populate_source_pktinfo(WSAMSG &msg, const boost::asio::ip::address &source_address) {
     ULONG cmbuflen = 0;
     auto cm = WSA_CMSG_FIRSTHDR(&msg);
+    // Gabs Remote: before the control stream connects the source is 0.0.0.0, which WSASendMsg rejects (10022)
+    if (!gabs::network::use_as_source(source_address)) {
+      return 0;
+    }
     if (source_address.is_v6()) {
       IN6_PKTINFO pktInfo;
 
@@ -1579,9 +1584,10 @@ namespace platf {
     auto cmbuflen = populate_source_pktinfo(msg, send_info.source_address);
 
     if (send_info.block_count > 1) {
+      // Gabs Remote: without a source address the size option is the first control message
+      auto cm = cmbuflen ? WSA_CMSG_NXTHDR(&msg, WSA_CMSG_FIRSTHDR(&msg)) : WSA_CMSG_FIRSTHDR(&msg);
       cmbuflen += WSA_CMSG_SPACE(sizeof(DWORD));
 
-      auto cm = WSA_CMSG_NXTHDR(&msg, WSA_CMSG_FIRSTHDR(&msg));
       cm->cmsg_level = IPPROTO_UDP;
       cm->cmsg_type = UDP_SEND_MSG_SIZE;
       cm->cmsg_len = WSA_CMSG_LEN(sizeof(DWORD));

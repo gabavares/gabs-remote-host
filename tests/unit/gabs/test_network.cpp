@@ -55,3 +55,15 @@ TEST(WolMac, ZeroWhenNothingFits) {
   };
   EXPECT_EQ(net_gr::wol_mac_for("100.99.120.91", adapters), "00:00:00:00:00:00");
 }
+
+TEST(SendSource, UnspecifiedAddressIsNotUsed) {
+  EXPECT_FALSE(net_gr::use_as_source(boost::asio::ip::address {}));
+  EXPECT_FALSE(net_gr::use_as_source(boost::asio::ip::make_address("0.0.0.0")));
+  EXPECT_FALSE(net_gr::use_as_source(boost::asio::ip::make_address("::")));
+}
+
+TEST(SendSource, ConnectedAddressIsUsed) {
+  EXPECT_TRUE(net_gr::use_as_source(boost::asio::ip::make_address("192.168.15.2")));
+  EXPECT_TRUE(net_gr::use_as_source(boost::asio::ip::make_address("100.99.120.91")));
+  EXPECT_TRUE(net_gr::use_as_source(boost::asio::ip::make_address("fd7a:115c:a1e0::5")));
+}

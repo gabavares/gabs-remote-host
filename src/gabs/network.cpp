@@ -38,6 +38,10 @@ namespace gabs::network {
     return std::string {zero_mac};
   }
 
+  bool use_as_source(const boost::asio::ip::address &address) {
+    return !address.is_unspecified();
+  }
+
   std::string wol_mac_address(std::string_view local_address) {
     auto adapters = enumerate_adapters();
     auto mac = wol_mac_for(local_address, adapters);

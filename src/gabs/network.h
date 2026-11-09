@@ -8,6 +8,9 @@
  */
 #pragma once
 
+// lib includes
+#include <boost/asio/ip/address.hpp>
+
 // standard includes
 #include <string>
 #include <string_view>
@@ -58,5 +61,14 @@ namespace gabs::network {
    *        each address needs the fallback.
    */
   std::string wol_mac_address(std::string_view local_address);
+
+  /**
+   * @brief Whether an outgoing UDP packet should carry this address as its source (IP_PKTINFO).
+   *
+   * The video and audio threads start sending before the control stream connects and sets the
+   * session's local address. Until then the address is unspecified, and Windows rejects a packet
+   * info with 0.0.0.0 (WSASendMsg error 10022). Those packets go out with the source the OS picks.
+   */
+  bool use_as_source(const boost::asio::ip::address &address);
 
 }  // namespace gabs::network
