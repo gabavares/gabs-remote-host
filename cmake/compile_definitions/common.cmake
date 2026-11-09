@@ -156,6 +156,9 @@ set(SUNSHINE_TARGET_FILES
         # Gabs Remote: placas de rede (MAC do WoL, presença)
         "${CMAKE_SOURCE_DIR}/src/gabs/network.h"
         "${CMAKE_SOURCE_DIR}/src/gabs/network.cpp"
+        # Gabs Remote: presença do PC na hospedagem (decisão 0005)
+        "${CMAKE_SOURCE_DIR}/src/gabs/presence.h"
+        "${CMAKE_SOURCE_DIR}/src/gabs/presence.cpp"
         "${CMAKE_SOURCE_DIR}/src/entry_handler.cpp"
         "${CMAKE_SOURCE_DIR}/src/entry_handler.h"
         "${CMAKE_SOURCE_DIR}/src/file_handler.cpp"

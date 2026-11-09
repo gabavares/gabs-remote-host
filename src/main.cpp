@@ -45,6 +45,7 @@
 #include "platform/permissions.h"
 #include "process.h"
 #include "system_tray.h"
+#include "gabs/presence.h"  // Gabs Remote
 #include "upnp.h"
 #include "video.h"
 
@@ -506,6 +507,8 @@ int main(int argc, char *argv[]) {
   std::jthread httpThread {nvhttp::start};
   std::jthread configThread {confighttp::start};
   std::jthread rtspThread {rtsp_stream::start};
+  // Gabs Remote: tell the presence page where the PC is (WoL from outside, decision 0005)
+  std::jthread presenceThread {gabs::presence::start()};
 
 #ifdef _WIN32
   // If we're using the default port and GameStream is enabled, warn the user
