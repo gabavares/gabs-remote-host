@@ -153,6 +153,9 @@ set(SUNSHINE_TARGET_FILES
         # Gabs Remote: layout de teclado da sessão
         "${CMAKE_SOURCE_DIR}/src/gabs/keyboard_layout.h"
         "${CMAKE_SOURCE_DIR}/src/gabs/keyboard_layout.cpp"
+        # Gabs Remote: placas de rede (MAC do WoL, presença)
+        "${CMAKE_SOURCE_DIR}/src/gabs/network.h"
+        "${CMAKE_SOURCE_DIR}/src/gabs/network.cpp"
         "${CMAKE_SOURCE_DIR}/src/entry_handler.cpp"
         "${CMAKE_SOURCE_DIR}/src/entry_handler.h"
         "${CMAKE_SOURCE_DIR}/src/file_handler.cpp"

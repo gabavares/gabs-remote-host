@@ -27,6 +27,7 @@
 #include "config.h"
 #include "display_device.h"
 #include "gabs/keyboard_layout.h"  // Gabs Remote
+#include "gabs/network.h"  // Gabs Remote
 #include "gabs/virtual_display.h"  // Gabs Remote
 #include "file_handler.h"
 #include "globals.h"
@@ -1276,7 +1277,8 @@ namespace nvhttp {
     // Only include the MAC address for requests sent from paired clients over HTTPS.
     // For HTTP requests, use a placeholder MAC address that Moonlight knows to ignore.
     if constexpr (std::is_same_v<SunshineHTTPS, T>) {
-      tree.put("root.mac", platf::get_mac_address(net::addr_to_normalized_string(local_endpoint.address())));
+      // Gabs Remote: over Tailscale the request arrives on a card without a MAC; report the physical one for WoL
+      tree.put("root.mac", gabs::network::wol_mac_address(net::addr_to_normalized_string(local_endpoint.address())));
     } else {
       tree.put("root.mac", "00:00:00:00:00:00");
     }
