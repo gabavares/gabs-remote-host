@@ -1595,6 +1595,7 @@ namespace platf {
     }
 
     msg.Control.len = cmbuflen;
+    msg.Control.buf = gabs::network::control_buffer(cmbuf.data(), cmbuflen);  // Gabs Remote: null when empty (10014)
 
     // If USO is not supported, this will fail and the caller will fall back to unbatched sends.
     DWORD bytes_sent;
@@ -1641,6 +1642,7 @@ namespace platf {
     auto cmbuflen = populate_source_pktinfo(msg, send_info.source_address);
 
     msg.Control.len = cmbuflen;
+    msg.Control.buf = gabs::network::control_buffer(cmbuf.data(), cmbuflen);  // Gabs Remote: null when empty (10014)
 
     DWORD bytes_sent;
     if (WSASendMsg((SOCKET) send_info.native_socket, &msg, 0, &bytes_sent, nullptr, nullptr) == SOCKET_ERROR) {

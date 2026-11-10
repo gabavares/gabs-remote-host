@@ -47,6 +47,20 @@ namespace gabs::network {
   std::string wol_mac_for(std::string_view local_address, const std::vector<adapter_t> &adapters);
 
   /**
+   * @brief Address to report as `LocalIP` in /serverinfo.
+   *
+   * Over Tailscale the request arrives on 100.64.0.0/10; the app would store that as the PC's home
+   * address and lose the real one, so the host reports the IPv4 of the physical card instead
+   * (127.0.0.1, which the app ignores, if there is none). Other addresses are returned unchanged.
+   */
+  std::string lan_ipv4_for(std::string_view local_address, const std::vector<adapter_t> &adapters);
+
+  /**
+   * @brief `lan_ipv4_for(local_address, enumerate_adapters())`.
+   */
+  std::string lan_ipv4_address(std::string_view local_address);
+
+  /**
    * @brief Adapters of this PC (platform specific).
    */
   std::vector<adapter_t> enumerate_adapters();
@@ -70,5 +84,12 @@ namespace gabs::network {
    * info with 0.0.0.0 (WSASendMsg error 10022). Those packets go out with the source the OS picks.
    */
   bool use_as_source(const boost::asio::ip::address &address);
+
+  /**
+   * @brief Control buffer to hand to WSASendMsg: null when no control message was written.
+   *
+   * A non-null buffer with length 0 makes WSASendMsg fail with WSAEFAULT (10014).
+   */
+  char *control_buffer(char *buffer, unsigned long used);
 
 }  // namespace gabs::network

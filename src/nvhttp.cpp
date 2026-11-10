@@ -1295,7 +1295,8 @@ namespace nvhttp {
     if (local_endpoint.address().is_v6() && !local_endpoint.address().to_v6().is_v4_mapped()) {
       tree.put("root.LocalIP", "127.0.0.1");
     } else {
-      tree.put("root.LocalIP", net::addr_to_normalized_string(local_endpoint.address()));
+      // Gabs Remote: over Tailscale report the home IPv4, so the app keeps the PC's LAN address
+      tree.put("root.LocalIP", gabs::network::lan_ipv4_address(net::addr_to_normalized_string(local_endpoint.address())));
     }
 
     const uint32_t codec_mode_flags = get_codec_mode_flags();

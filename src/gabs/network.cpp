@@ -17,6 +17,14 @@ namespace gabs::network {
 
   namespace {
     constexpr auto zero_mac = "00:00:00:00:00:00"sv;
+
+    bool is_tailscale_v4(const boost::asio::ip::address &a) {
+      if (!a.is_v4()) {
+        return false;
+      }
+      auto b = a.to_v4().to_bytes();
+      return b[0] == 100 && (b[1] & 0xC0) == 64;  // 100.64.0.0/10
+    }
   }
 
   std::string wol_mac_for(std::string_view local_address, const std::vector<adapter_t> &adapters) {
@@ -40,6 +48,34 @@ namespace gabs::network {
 
   bool use_as_source(const boost::asio::ip::address &address) {
     return !address.is_unspecified();
+  }
+
+  std::string lan_ipv4_for(std::string_view local_address, const std::vector<adapter_t> &adapters) {
+    boost::system::error_code ec;
+    auto local = boost::asio::ip::make_address(std::string {local_address}, ec);
+    if (ec || !is_tailscale_v4(local)) {
+      return std::string {local_address};
+    }
+    for (const auto &adapter : adapters) {
+      if (adapter.mac.empty() || !adapter.physical || !adapter.up || !adapter.has_ipv4_gateway) {
+        continue;
+      }
+      for (const auto &text : adapter.addresses) {
+        auto a = boost::asio::ip::make_address(text, ec);
+        if (!ec && a.is_v4() && !is_tailscale_v4(a)) {
+          return a.to_string();
+        }
+      }
+    }
+    return "127.0.0.1";
+  }
+
+  std::string lan_ipv4_address(std::string_view local_address) {
+    return lan_ipv4_for(local_address, enumerate_adapters());
+  }
+
+  char *control_buffer(char *buffer, unsigned long used) {
+    return used == 0 ? nullptr : buffer;
   }
 
   std::string wol_mac_address(std::string_view local_address) {

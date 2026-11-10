@@ -67,3 +67,30 @@ TEST(SendSource, ConnectedAddressIsUsed) {
   EXPECT_TRUE(net_gr::use_as_source(boost::asio::ip::make_address("100.99.120.91")));
   EXPECT_TRUE(net_gr::use_as_source(boost::asio::ip::make_address("fd7a:115c:a1e0::5")));
 }
+
+TEST(SendSource, EmptyControlBufferIsNull) {
+  char buffer[32];
+  EXPECT_EQ(net_gr::control_buffer(buffer, 0), nullptr);
+  EXPECT_EQ(net_gr::control_buffer(buffer, 24), buffer);
+}
+
+TEST(LocalIp, KeepsHomeAddress) {
+  std::vector<net_gr::adapter_t> adapters {ethernet()};
+  EXPECT_EQ(net_gr::lan_ipv4_for("192.168.15.2", adapters), "192.168.15.2");
+}
+
+TEST(LocalIp, TailscaleReportsPhysicalIpv4) {
+  std::vector<net_gr::adapter_t> adapters {
+    {"", {"fd7a:115c:a1e0::5", "100.99.120.91"}, false, true, false},
+    {"22:22:22:22:22:22", {"172.20.0.1"}, false, true, false},  // vEthernet
+    ethernet(),
+  };
+  EXPECT_EQ(net_gr::lan_ipv4_for("100.99.120.91", adapters), "192.168.15.2");
+}
+
+TEST(LocalIp, TailscaleWithoutHomeCardIsLoopback) {
+  std::vector<net_gr::adapter_t> adapters {
+    {"", {"100.99.120.91"}, false, true, false},
+  };
+  EXPECT_EQ(net_gr::lan_ipv4_for("100.99.120.91", adapters), "127.0.0.1");
+}
