@@ -159,6 +159,9 @@ set(SUNSHINE_TARGET_FILES
         # Gabs Remote: presença do PC na hospedagem (decisão 0005)
         "${CMAKE_SOURCE_DIR}/src/gabs/presence.h"
         "${CMAKE_SOURCE_DIR}/src/gabs/presence.cpp"
+        # Gabs Remote: IPv4 público de casa por STUN (ExternalIP, WoL de fora)
+        "${CMAKE_SOURCE_DIR}/src/gabs/external_ip.h"
+        "${CMAKE_SOURCE_DIR}/src/gabs/external_ip.cpp"
         "${CMAKE_SOURCE_DIR}/src/entry_handler.cpp"
         "${CMAKE_SOURCE_DIR}/src/entry_handler.h"
         "${CMAKE_SOURCE_DIR}/src/file_handler.cpp"

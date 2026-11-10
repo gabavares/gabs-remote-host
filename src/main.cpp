@@ -46,6 +46,7 @@
 #include "process.h"
 #include "system_tray.h"
 #include "gabs/presence.h"  // Gabs Remote
+#include "gabs/external_ip.h"  // Gabs Remote
 #include "upnp.h"
 #include "video.h"
 
@@ -509,6 +510,8 @@ int main(int argc, char *argv[]) {
   std::jthread rtspThread {rtsp_stream::start};
   // Gabs Remote: tell the presence page where the PC is (WoL from outside, decision 0005)
   std::jthread presenceThread {gabs::presence::start()};
+  // Gabs Remote: home public IPv4 by STUN, reported as ExternalIP (WoL from outside)
+  std::jthread externalIpThread {gabs::external_ip::start()};
 
 #ifdef _WIN32
   // If we're using the default port and GameStream is enabled, warn the user

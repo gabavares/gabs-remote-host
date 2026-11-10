@@ -26,6 +26,7 @@
 // local includes
 #include "config.h"
 #include "display_device.h"
+#include "gabs/external_ip.h"  // Gabs Remote
 #include "gabs/keyboard_layout.h"  // Gabs Remote
 #include "gabs/network.h"  // Gabs Remote
 #include "gabs/virtual_display.h"  // Gabs Remote
@@ -1302,8 +1303,9 @@ namespace nvhttp {
     const uint32_t codec_mode_flags = get_codec_mode_flags();
     tree.put("root.ServerCodecModeSupport", codec_mode_flags);
 
-    if (!config::nvhttp.external_ip.empty()) {
-      tree.put("root.ExternalIP", config::nvhttp.external_ip);
+    // Gabs Remote: without a configured external_ip, report the one found by STUN (WoL from outside)
+    if (auto external = gabs::external_ip::report(config::nvhttp.external_ip, gabs::external_ip::current()); !external.empty()) {
+      tree.put("root.ExternalIP", external);
     }
 
     auto current_appid = proc::proc.running();
