@@ -48,6 +48,7 @@
 #include "confighttp.h"
 #include "crypto.h"
 #include "display_device.h"
+#include "gabs/update_service.h"  // Gabs Remote
 #include "file_handler.h"
 #include "globals.h"
 #include "httpcommon.h"
@@ -2012,6 +2013,72 @@ namespace confighttp {
   }
 
   /**
+   * @brief Gabs Remote: updater status for the panel (decision 0006).
+   *
+   * @api_examples{/api/gabs/update|:| GET|:| null}
+   */
+  void getGabsUpdate(const resp_https_t &response, const req_https_t &request) {
+    if (!authenticate(response, request)) {
+      return;
+    }
+    print_req(request);
+    auto s = gabs::update::status();
+    nlohmann::json output_tree;
+    output_tree["installed"] = s.installed;
+    output_tree["latest"] = s.latest;
+    output_tree["notes"] = s.notes;
+    output_tree["state"] = gabs::update::to_string(s.state);
+    output_tree["error"] = s.error;
+    send_response(response, output_tree);
+  }
+
+  /**
+   * @brief Gabs Remote: check for updates now (panel button).
+   *
+   * @api_examples{/api/gabs/update/check|:| POST|:| null}
+   */
+  void checkGabsUpdate(const resp_https_t &response, const req_https_t &request) {
+    if (!authenticate(response, request)) {
+      return;
+    }
+    std::string client_id = get_client_id(request);
+    if (!validate_csrf_token(response, request, client_id)) {
+      return;
+    }
+    print_req(request);
+    gabs::update::request_check();
+    nlohmann::json output_tree;
+    output_tree["status"] = true;
+    send_response(response, output_tree);
+  }
+
+  /**
+   * @brief Gabs Remote: install the downloaded update now, only with no session.
+   *
+   * @api_examples{/api/gabs/update/install|:| POST|:| null}
+   */
+  void installGabsUpdate(const resp_https_t &response, const req_https_t &request) {
+    if (!authenticate(response, request)) {
+      return;
+    }
+    std::string client_id = get_client_id(request);
+    if (!validate_csrf_token(response, request, client_id)) {
+      return;
+    }
+    print_req(request);
+    nlohmann::json output_tree;
+    if (gabs::update::request_install()) {
+      output_tree["status"] = true;
+    } else {
+      output_tree["status"] = false;
+      output_tree["error"] = gabs::update::status().state == gabs::update::state_e::ready ?
+                               "Há uma sessão ativa. A atualização instala quando ela terminar." :
+                               "Nenhuma atualização pronta para instalar.";
+    }
+    send_response(response, output_tree);
+  }
+
+  /**
    * @brief Return permission status for the current host platform.
    *
    * @api_examples{/api/permissions|:| GET|:| null}
@@ -2506,6 +2573,10 @@ namespace confighttp {
     server.resource["^/api/reset-display-device-persistence$"]["POST"] = resetDisplayDevicePersistence;
     server.resource["^/api/reset-portal-token$"]["POST"] = resetPortalToken;
     server.resource["^/api/restart$"]["POST"] = restart;
+    // Gabs Remote: updater (decision 0006)
+    server.resource["^/api/gabs/update$"]["GET"] = getGabsUpdate;
+    server.resource["^/api/gabs/update/check$"]["POST"] = checkGabsUpdate;
+    server.resource["^/api/gabs/update/install$"]["POST"] = installGabsUpdate;
     server.resource["^/api/permissions$"]["GET"] = getPermissions;
     server.resource["^/api/permissions/request$"]["POST"] = requestPermission;
     server.resource["^/api/virtual-input/license$"]["GET"] = getVirtualInputLicense;

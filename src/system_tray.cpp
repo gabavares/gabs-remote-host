@@ -941,6 +941,30 @@ namespace system_tray {
     tray_update(&tray);
   }
 
+  void update_tray_update_ready(const std::string &version) {
+    // Gabs Remote: the tray keeps the pointers, so the strings must outlive this call (decision 0006).
+    static std::string title;
+    static const std::string text = "Instala sozinha quando não houver sessão. Notas no painel.";
+    const std::scoped_lock lock(tray_state_mutex());
+    if (!tray_initialized_state().load()) {
+      return;
+    }
+    title = "Gabs Remote " + version + " pronta";
+
+    tray.notification_title = nullptr;
+    tray.notification_text = nullptr;
+    tray.notification_cb = nullptr;
+    tray.notification_icon = nullptr;
+    tray_update(&tray);
+    tray.notification_title = title.c_str();
+    tray.notification_text = text.c_str();
+    tray.notification_icon = tray.allIconPaths[0];
+    tray.notification_cb = []() {
+      launch_ui();
+    };
+    tray_update(&tray);
+  }
+
   // Threading functions available on all platforms
   /**
    * @brief Run the managed system tray event loop.

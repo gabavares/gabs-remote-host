@@ -780,5 +780,21 @@
     "greeting": "Bem-vindo ao Sunshine!",
     "login": "Login",
     "welcome_success": "Esta página será recarregada em breve e seu navegador solicitará as novas credenciais"
+  },
+  "gabs_update": {
+    "title": "Gabs Remote {version}",
+    "state": "Atualização",
+    "state_idle": "aguardando a primeira conferência",
+    "state_checking": "procurando...",
+    "state_up_to_date": "Em dia",
+    "state_downloading": "baixando a versão nova...",
+    "state_ready": "pronta para instalar",
+    "state_installing": "instalando (o serviço reinicia)",
+    "state_error": "erro",
+    "available": "Gabs Remote {version} disponível",
+    "ready_desc": "Baixada e conferida. Instala sozinha quando não houver sessão.",
+    "check": "Procurar atualizações",
+    "install_now": "Instalar agora",
+    "installing_desc": "Instalando. O painel volta em cerca de 1 minuto."
   }
 }

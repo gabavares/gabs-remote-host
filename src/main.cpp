@@ -47,6 +47,7 @@
 #include "system_tray.h"
 #include "gabs/presence.h"  // Gabs Remote
 #include "gabs/external_ip.h"  // Gabs Remote
+#include "gabs/update_service.h"  // Gabs Remote
 #include "upnp.h"
 #include "video.h"
 
@@ -512,6 +513,8 @@ int main(int argc, char *argv[]) {
   std::jthread presenceThread {gabs::presence::start()};
   // Gabs Remote: home public IPv4 by STUN, reported as ExternalIP (WoL from outside)
   std::jthread externalIpThread {gabs::external_ip::start()};
+  // Gabs Remote: updater (checks the Release, installs with no session; decision 0006)
+  auto updater = gabs::update::start();
 
 #ifdef _WIN32
   // If we're using the default port and GameStream is enabled, warn the user

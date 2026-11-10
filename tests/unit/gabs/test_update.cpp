@@ -214,3 +214,78 @@ TEST(UpdatePolicy, UserCheckIsImmediate) {
   in.since_last_check = 1s;
   EXPECT_EQ(up::next_action(in), up::action_e::check);
 }
+
+// ---- Task 5: arquivos baixados (sem rede) ----
+
+#include <src/gabs/update_service.h>
+
+namespace {
+  struct temp_dir_t {
+    std::filesystem::path path;
+
+    explicit temp_dir_t(const char *name):
+        path(std::filesystem::temp_directory_path() / name) {
+      std::filesystem::remove_all(path);
+      std::filesystem::create_directories(path);
+    }
+
+    ~temp_dir_t() {
+      std::error_code ec;
+      std::filesystem::remove_all(path, ec);
+    }
+  };
+
+  void write_text(const std::filesystem::path &p, const std::string &text) {
+    std::ofstream out(p, std::ios::binary);
+    out << text;
+  }
+}  // namespace
+
+TEST(UpdateFiles, PartialFileNeverReady) {
+  temp_dir_t dir {"gabs-update-files-1"};
+  auto part = dir.path / "GabsRemote-Setup-0.4.1.exe.part";
+  write_text(part, "abc");
+  up::artifact_t expected {"GabsRemote-Setup-0.4.1.exe", std::string(64, '0'), 3};
+  EXPECT_FALSE(up::finish_download(part, expected));
+  EXPECT_FALSE(std::filesystem::exists(part));
+  EXPECT_FALSE(std::filesystem::exists(dir.path / "GabsRemote-Setup-0.4.1.exe"));
+
+  // tamanho errado com o hash certo também não serve
+  write_text(part, "abc");
+  up::artifact_t wrong_size {"GabsRemote-Setup-0.4.1.exe", "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", 4};
+  EXPECT_FALSE(up::finish_download(part, wrong_size));
+  EXPECT_FALSE(std::filesystem::exists(part));
+  EXPECT_FALSE(std::filesystem::exists(dir.path / "GabsRemote-Setup-0.4.1.exe"));
+}
+
+TEST(UpdateFiles, ReadyAfterHashMatches) {
+  temp_dir_t dir {"gabs-update-files-2"};
+  auto part = dir.path / "GabsRemote-Setup-0.4.1.exe.part";
+  write_text(part, "abc");
+  up::artifact_t expected {"GabsRemote-Setup-0.4.1.exe", "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", 3};
+  EXPECT_TRUE(up::finish_download(part, expected));
+  EXPECT_FALSE(std::filesystem::exists(part));
+  EXPECT_TRUE(std::filesystem::exists(dir.path / "GabsRemote-Setup-0.4.1.exe"));
+  EXPECT_EQ(up::sha256_file(dir.path / "GabsRemote-Setup-0.4.1.exe"), expected.sha256);
+}
+
+TEST(UpdateFiles, CleansOldInstallers) {
+  temp_dir_t dir {"gabs-update-files-3"};
+  write_text(dir.path / "GabsRemote-Setup-0.4.0.exe", "x");
+  write_text(dir.path / "GabsRemote-Setup-0.4.1.exe", "x");
+  write_text(dir.path / "GabsRemote-Setup-0.4.2.exe", "x");
+  write_text(dir.path / "GabsRemote-Setup-0.4.3.exe.part", "x");
+  write_text(dir.path / "outro.txt", "x");
+  up::clean_updates_dir(dir.path, v("0.4.1"));
+  EXPECT_FALSE(std::filesystem::exists(dir.path / "GabsRemote-Setup-0.4.0.exe"));
+  EXPECT_FALSE(std::filesystem::exists(dir.path / "GabsRemote-Setup-0.4.1.exe"));
+  EXPECT_TRUE(std::filesystem::exists(dir.path / "GabsRemote-Setup-0.4.2.exe"));
+  EXPECT_FALSE(std::filesystem::exists(dir.path / "GabsRemote-Setup-0.4.3.exe.part"));
+  EXPECT_TRUE(std::filesystem::exists(dir.path / "outro.txt"));
+}
+
+TEST(UpdateFiles, InstallerNameFromManifest) {
+  EXPECT_EQ(up::installer_version("GabsRemote-Setup-0.4.2.exe"), v("0.4.2"));
+  EXPECT_FALSE(up::installer_version("GabsRemote-Setup-0.4.exe"));
+  EXPECT_FALSE(up::installer_version("Outro-0.4.2.exe"));
+}

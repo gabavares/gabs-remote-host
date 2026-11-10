@@ -780,5 +780,21 @@
     "greeting": "Welcome to Sunshine!",
     "login": "Login",
     "welcome_success": "This page will reload soon, your browser will ask you for the new credentials"
+  },
+  "gabs_update": {
+    "title": "Gabs Remote {version}",
+    "state": "Update",
+    "state_idle": "waiting for the first check",
+    "state_checking": "checking...",
+    "state_up_to_date": "Up to date",
+    "state_downloading": "downloading the new version...",
+    "state_ready": "ready to install",
+    "state_installing": "installing (the service restarts)",
+    "state_error": "error",
+    "available": "Gabs Remote {version} available",
+    "ready_desc": "Downloaded and verified. Installs by itself when there is no session.",
+    "check": "Check for updates",
+    "install_now": "Install now",
+    "installing_desc": "Installing. The panel comes back in about 1 minute."
   }
 }

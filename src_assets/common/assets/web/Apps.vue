@@ -785,10 +785,7 @@
           this.version = new SunshineVersion(null, r.version);
         });
 
-      fetch("https://api.github.com/repos/LizardByte/Sunshine/releases/latest")
-        .then((r) => r.json())
-        .then((r) => this.githubVersion = new SunshineVersion(r, null))
-        .catch((e) => console.error(e));
+      // Gabs Remote: sem consulta ao GitHub do LizardByte (decisão 0006)
     },
     methods: {
       newApp() {

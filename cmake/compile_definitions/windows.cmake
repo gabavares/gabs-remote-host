@@ -79,6 +79,8 @@ set(PLATFORM_TARGET_FILES
         "${CMAKE_SOURCE_DIR}/src/platform/windows/gabs/keyboard_layout_win.cpp"
         # Gabs Remote: placas de rede (MAC do WoL, presença)
         "${CMAKE_SOURCE_DIR}/src/platform/windows/gabs/adapters_win.cpp"
+        # Gabs Remote: roda o instalador fora do job object do serviço (decisão 0006)
+        "${CMAKE_SOURCE_DIR}/src/platform/windows/gabs/update_launch_win.cpp"
         "${CMAKE_SOURCE_DIR}/src/platform/windows/audio.cpp"
         "${CMAKE_SOURCE_DIR}/src/platform/windows/utf_utils.cpp"
         "${CMAKE_SOURCE_DIR}/src/platform/windows/utf_utils.h"

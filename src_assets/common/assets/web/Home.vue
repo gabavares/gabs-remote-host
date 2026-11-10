@@ -53,71 +53,34 @@
       </div>
     </div>
 
-    <!-- Version -->
+    <!-- Gabs Remote: versão e atualização automática (decisão 0006) -->
     <div class="card my-4">
-      <div class="card-body" v-if="version">
-        <h2>Version {{version.version}}</h2>
-
-        <div v-if="loading" class="my-3">
-          {{ $t('index.loading_latest') }}
+      <div class="card-body">
+        <h2>{{ $t('gabs_update.title', { version: update.installed || (version && version.version) || '' }) }}</h2>
+        <p class="mb-2">
+          <strong>{{ $t('gabs_update.state') }}:</strong>
+          {{ $t('gabs_update.state_' + (update.state || 'idle')) }}
+        </p>
+        <div class="alert alert-danger my-3" v-if="update.state === 'error' && update.error">
+          <alert-circle :size="18" class="icon"></alert-circle>
+          {{ update.error }}
         </div>
-
-        <div class="alert alert-success my-3" v-if="buildVersionIsDirty">
-          <package :size="18" class="icon"></package>
-          {{ $t('index.version_dirty') }} 🌇
+        <div class="alert alert-warning my-3" v-if="updateAvailable">
+          <h5 class="mb-2">{{ $t('gabs_update.available', { version: update.latest }) }}</h5>
+          <p class="mb-2" v-if="update.state === 'ready'">{{ $t('gabs_update.ready_desc') }}</p>
+          <div class="release-notes" style="white-space: pre-wrap">{{ update.notes }}</div>
         </div>
-
-        <div class="alert alert-info my-3" v-if="installedVersionNotStable">
-          <info :size="18" class="icon"></info>
-          {{ $t('index.installed_version_not_stable') }}
+        <div class="d-flex gap-2 flex-wrap">
+          <button class="btn btn-primary" :disabled="updateBusy || update.state === 'checking' || update.state === 'installing'" @click="checkUpdate">
+            <download :size="18" class="icon"></download>
+            {{ $t('gabs_update.check') }}
+          </button>
+          <button class="btn btn-success" :disabled="updateBusy || update.state !== 'ready'" @click="installUpdate">
+            <package :size="18" class="icon"></package>
+            {{ $t('gabs_update.install_now') }}
+          </button>
         </div>
-
-        <div v-else-if="(!preReleaseBuildAvailable || !notifyPreReleases) && !stableBuildAvailable && !buildVersionIsDirty">
-          <div class="alert alert-success my-3">
-            <check-circle :size="18" class="icon"></check-circle>
-            {{ $t('index.version_latest') }}
-          </div>
-        </div>
-
-        <div v-if="notifyPreReleases && preReleaseBuildAvailable">
-          <div class="alert alert-warning my-3">
-            <!-- header row -->
-            <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap mb-3">
-              <div class="d-flex align-items-center gap-3 flex-wrap">
-                <alert-circle :size="18" class="icon"></alert-circle>
-                <span>{{ $t('index.new_pre_release') }}</span>
-                <h5 class="mb-0">{{ preReleaseVersion.release.name }}</h5>
-              </div>
-              <a class="btn btn-success flex-shrink-0" :href="preReleaseVersion.release.html_url" target="_blank">
-                <download :size="18" class="icon"></download>
-                {{ $t('index.download') }}
-              </a>
-            </div>
-
-            <!-- body row (full width) -->
-            <div class="markdown-body release-notes" v-html="convertMarkdownToHtml(preReleaseVersion.release.body)"></div>
-          </div>
-        </div>
-
-        <div v-if="stableBuildAvailable">
-          <div class="alert alert-warning my-3">
-            <!-- header row -->
-            <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap mb-3">
-              <div class="d-flex align-items-center gap-3 flex-wrap">
-                <alert-circle :size="18" class="icon"></alert-circle>
-                <span>{{ $t('index.new_stable') }}</span>
-                <h5 class="mb-0">{{ githubVersion.release.name }}</h5>
-              </div>
-              <a class="btn btn-success flex-shrink-0" :href="githubVersion.release.html_url" target="_blank">
-                <download :size="18" class="icon"></download>
-                {{ $t('index.download') }}
-              </a>
-            </div>
-
-            <!-- body row (full width) -->
-            <div class="markdown-body release-notes" v-html="convertMarkdownToHtml(githubVersion.release.body)"></div>
-          </div>
-        </div>
+        <div class="alert alert-info my-3" v-if="updateMessage">{{ updateMessage }}</div>
       </div>
     </div>
 
@@ -133,6 +96,7 @@
   import Navbar from './Navbar.vue'
   import ResourceCard from './ResourceCard.vue'
   import SunshineVersion from './sunshine_version'
+  import { apiFetch } from './fetch_utils'
   import {
     AlertCircle,
     AlertTriangle,
@@ -184,6 +148,10 @@
         virtualhidLicense: null,
         vigembus: null,
         permissions: [],
+        // Gabs Remote: updater do host
+        update: { installed: '', latest: '', notes: '', state: 'idle', error: '' },
+        updateBusy: false,
+        updateMessage: '',
       }
     },
     async created() {
@@ -201,10 +169,8 @@
           console.error('Failed to fetch permission status:', e);
         }
         console.log("Version: ", this.version.version)
-        this.githubVersion = new SunshineVersion(await fetch("https://api.github.com/repos/LizardByte/Sunshine/releases/latest").then((r) => r.json()), null);
-        console.log("GitHub Version: ", this.githubVersion.version)
-        this.preReleaseVersion = new SunshineVersion((await fetch("https://api.github.com/repos/LizardByte/Sunshine/releases").then((r) => r.json())).find(release => release.prerelease), null);
-        console.log("Pre-Release Version: ", this.preReleaseVersion.version)
+        // Gabs Remote: sem consulta ao GitHub do LizardByte; a versão vem do updater do host (decisão 0006)
+        await this.loadUpdate();
 
         // Read the broker version on both platforms to identify development builds.
         if (this.platform === 'windows' || this.platform === 'macos') {
@@ -236,6 +202,11 @@
       this.loading = false;
     },
     computed: {
+      /** Gabs Remote: uma versão mais nova foi encontrada e ainda não foi instalada. */
+      updateAvailable() {
+        return !!this.update.latest && this.update.latest !== this.update.installed &&
+          ['downloading', 'ready', 'installing'].includes(this.update.state);
+      },
       /** Return required permissions that the current platform can check and has not granted. */
       missingPermissions() {
         return this.permissions.filter(permission => permission.required && permission.verifiable && permission.status !== 'granted');
@@ -326,6 +297,44 @@
       }
     },
     methods: {
+      /** Gabs Remote: estado do updater do host. */
+      async loadUpdate() {
+        try {
+          this.update = await fetch("./api/gabs/update").then((r) => r.json());
+        } catch (e) {
+          console.error("Failed to fetch the update status:", e);
+        }
+      },
+      /** Gabs Remote: procura atualização agora e acompanha o estado por até 1 minuto. */
+      async checkUpdate() {
+        this.updateBusy = true;
+        this.updateMessage = '';
+        try {
+          await apiFetch("./api/gabs/update/check", { method: "POST", headers: { "Content-Type": "application/json" } });
+          for (let i = 0; i < 30; i++) {
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+            await this.loadUpdate();
+            if (!['idle', 'checking', 'downloading'].includes(this.update.state)) {
+              break;
+            }
+          }
+        } catch (e) {
+          console.error(e);
+        }
+        this.updateBusy = false;
+      },
+      /** Gabs Remote: instala agora (o host só aceita sem sessão). */
+      async installUpdate() {
+        this.updateBusy = true;
+        try {
+          const r = await apiFetch("./api/gabs/update/install", { method: "POST", headers: { "Content-Type": "application/json" } }).then((r) => r.json());
+          this.updateMessage = r.status ? this.$t('gabs_update.installing_desc') : r.error;
+          await this.loadUpdate();
+        } catch (e) {
+          console.error(e);
+        }
+        this.updateBusy = false;
+      },
       /**
        * Build the macOS broker notice, prioritizing license and service warnings.
        *

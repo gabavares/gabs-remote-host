@@ -131,6 +131,12 @@ namespace system_tray {
    */
   void update_tray_require_pin();
 
+  /**
+   * @brief Gabs Remote: a new version was downloaded and installs when there is no session (decision 0006).
+   * @param version The version ready to install.
+   */
+  void update_tray_update_ready(const std::string &version);
+
 #if defined(_WIN32) || defined(__APPLE__)
   /**
    * @brief Update the Virtual HID Broker license submenu and optional notification.
