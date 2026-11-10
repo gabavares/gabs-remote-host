@@ -1270,6 +1270,9 @@ namespace nvhttp {
 
     tree.put("root.appversion", VERSION);
     tree.put("root.GfeVersion", GFE_VERSION);
+    // Gabs Remote: versão do sistema e versão mínima do app aceita (decisão 0006)
+    tree.put("root.GabsVersion", PROJECT_VERSION);
+    tree.put("root.GabsMinApp", GABS_MIN_APP);
     tree.put("root.uniqueid", http::unique_id);
     tree.put("root.HttpsPort", net::map_port(PORT_HTTPS));
     tree.put("root.ExternalPort", net::map_port(PORT_HTTP));
