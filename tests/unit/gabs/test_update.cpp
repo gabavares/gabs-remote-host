@@ -289,3 +289,23 @@ TEST(UpdateFiles, InstallerNameFromManifest) {
   EXPECT_FALSE(up::installer_version("GabsRemote-Setup-0.4.exe"));
   EXPECT_FALSE(up::installer_version("Outro-0.4.2.exe"));
 }
+
+// ---- Revisão final: sem novo download depois de uma falha até a próxima conferência ----
+
+TEST(UpdatePolicy, NoDownloadAfterFailureUntilRetry) {
+  auto in = idle_input();
+  in.available = v("0.4.1");
+  in.last_check_failed = true;  // download, conferência do hash ou execução do instalador falhou
+  in.since_last_check = 10min;
+  EXPECT_EQ(up::next_action(in), up::action_e::wait);
+  in.since_last_check = 1h;
+  EXPECT_EQ(up::next_action(in), up::action_e::check);
+}
+
+TEST(UpdatePolicy, ReadyInstallerStillInstallsAfterFailedCheck) {
+  auto in = idle_input();
+  in.available = v("0.4.1");
+  in.installer_ready = true;
+  in.last_check_failed = true;
+  EXPECT_EQ(up::next_action(in), up::action_e::install);
+}

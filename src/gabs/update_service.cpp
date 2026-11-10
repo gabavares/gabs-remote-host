@@ -274,9 +274,8 @@ namespace gabs::update {
             in.since_last_check = std::chrono::duration_cast<std::chrono::seconds>(now - *last_check);
           }
           in.last_check_failed = last_failed;
-          // After a failed check or download, nothing new is downloaded until the next check
-          // (1 hour); an installer that is already ready still installs.
-          if (s.manifest && (!last_failed || s.installer_ready)) {
+          // After a failure the policy waits for the next check (1 hour); a ready installer still installs.
+          if (s.manifest) {
             in.available = s.manifest->version;
           }
           in.installer_ready = s.installer_ready && !launched;
@@ -307,6 +306,11 @@ namespace gabs::update {
               do_install(*manifest, installer);
               std::scoped_lock lock {s.mutex};
               launched = s.state == state_e::installing;
+              if (!launched) {
+                // Hash changed (e.g. antivirus) or the installer did not start: no new download for 1 hour.
+                last_failed = true;
+                last_check = std::chrono::steady_clock::now();
+              }
             }
             break;
           case action_e::wait:

@@ -25,9 +25,10 @@ namespace gabs::update {
       // The installer stops the service: only with no session and no app (PC "ready", decision 0004).
       return (in.sessions == 0 && in.running_apps == 0) ? action_e::install : action_e::wait;
     }
-    if (newer) {
+    if (newer && !in.last_check_failed) {
       return action_e::download;
     }
+    // After a failed check, download, hash check or installer start: nothing new until the next check.
 
     if (!in.since_last_check) {
       return in.since_start >= first_check_delay ? action_e::check : action_e::wait;
