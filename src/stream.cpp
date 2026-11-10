@@ -26,6 +26,7 @@ extern "C" {
 // local includes
 #include "config.h"
 #include "display_device.h"
+#include "gabs/cursor.h"  // Gabs Remote
 #include "gabs/keyboard_layout.h"  // Gabs Remote
 #include "gabs/virtual_display.h"  // Gabs Remote
 #include "globals.h"
@@ -2323,6 +2324,7 @@ namespace stream {
 
       // If this is the last session, invoke the platform callbacks
       if (--running_sessions == 0) {
+        gabs::cursor::instance().restore();  // Gabs Remote: the cursor goes back into the video
         // Gabs Remote: with a virtual display the PC stays ready (display and keyboard) until the app is quit.
         bool revert_display_config {gabs::virtual_display::should_revert_on_session_end(config::video.dd.config_revert_on_disconnect)};
         if (proc::proc.running()) {

@@ -34,6 +34,7 @@
 // local includes
 #include "confighttp.h"
 #include "display_device.h"
+#include "gabs/cursor.h"  // Gabs Remote
 #include "gabs/keyboard_layout.h"  // Gabs Remote
 #include "gabs/virtual_display.h"  // Gabs Remote
 #include "entry_handler.h"
@@ -309,6 +310,14 @@ int main(int argc, char *argv[]) {
   gabs::virtual_display::instance().startup_cleanup();
   // Gabs Remote: keyboard layout of the session (grKeyboard); after a switch, check the foreground window every 500 ms for 10 s (the display change moves the focus).
   gabs::keyboard_layout::install(std::make_unique<gabs::keyboard_layout::switcher_t>(gabs::keyboard_layout::make_platform_backend(), std::chrono::milliseconds {500}, 20));
+  // Gabs Remote: cursor drawn on the tablet (grCursor=local); the shape is read every 16 ms during such a session.
+  gabs::cursor::install(std::make_unique<gabs::cursor::tracker_t>(
+    gabs::cursor::make_platform_sampler(),
+    [](bool on) {
+      display_cursor = on;
+    },
+    std::chrono::milliseconds {16}
+  ));
 
 #ifdef _WIN32
   // Modify relevant NVIDIA control panel settings if the system has corresponding gpu

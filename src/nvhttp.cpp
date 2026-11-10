@@ -26,6 +26,7 @@
 // local includes
 #include "config.h"
 #include "display_device.h"
+#include "gabs/cursor.h"  // Gabs Remote
 #include "gabs/external_ip.h"  // Gabs Remote
 #include "gabs/keyboard_layout.h"  // Gabs Remote
 #include "gabs/network.h"  // Gabs Remote
@@ -524,7 +525,8 @@ namespace nvhttp {
     launch_session->gr_display = gabs::virtual_display::parse_display_choice(get_arg(args, "grDisplay", ""));  // Gabs Remote
     launch_session->gr_scale = gabs::virtual_display::parse_scale(get_arg(args, "grScale", ""));  // Gabs Remote
     launch_session->gr_keyboard = gabs::keyboard_layout::parse_layout(get_arg(args, "grKeyboard", ""));  // Gabs Remote
-    BOOST_LOG(info) << "Gabs Remote: launch "sv << gabs::virtual_display::describe_launch(get_arg(args, "mode", ""), get_arg(args, "grDisplay", ""), get_arg(args, "grScale", "")) << " grKeyboard="sv << get_arg(args, "grKeyboard", "");
+    launch_session->gr_cursor = gabs::cursor::parse_cursor_choice(get_arg(args, "grCursor", ""));  // Gabs Remote
+    BOOST_LOG(info) << "Gabs Remote: launch "sv << gabs::virtual_display::describe_launch(get_arg(args, "mode", ""), get_arg(args, "grDisplay", ""), get_arg(args, "grScale", "")) << " grKeyboard="sv << get_arg(args, "grKeyboard", "") << " grCursor="sv << get_arg(args, "grCursor", "");
 
     // Encrypted RTSP is enabled with client reported corever >= 1
     auto corever = util::from_view(get_arg(args, "corever", "0"));
@@ -1444,6 +1446,7 @@ namespace nvhttp {
         gabs::virtual_display::apply_scale_for_launch(launch_session->gr_display, launch_session->gr_scale);
       }
       gabs::keyboard_layout::instance().apply(launch_session->gr_keyboard);  // Gabs Remote
+      gabs::cursor::instance().apply(launch_session->gr_cursor);  // Gabs Remote
 
       // Probe encoders again before streaming to ensure our chosen
       // encoder matches the active GPU (which could have changed
@@ -1564,6 +1567,7 @@ namespace nvhttp {
         gabs::virtual_display::apply_scale_for_launch(launch_session->gr_display, launch_session->gr_scale);
       }
       gabs::keyboard_layout::instance().apply(launch_session->gr_keyboard);  // Gabs Remote
+      gabs::cursor::instance().apply(launch_session->gr_cursor);  // Gabs Remote
 
       // Probe encoders again before streaming to ensure our chosen
       // encoder matches the active GPU (which could have changed
@@ -1633,7 +1637,25 @@ namespace nvhttp {
 
     // The config needs to be reverted regardless of whether "proc::proc.terminate()" was called or not.
     gabs::keyboard_layout::instance().restore();  // Gabs Remote
+    gabs::cursor::instance().restore();  // Gabs Remote
     display_device::revert_configuration();
+  }
+
+  /**
+   * @brief Gabs Remote: shape of the PC cursor for the app that draws it (`grCursor=local`).
+   * @details Long poll: `GET /gabs/cursor?v=<version the app has>` answers at once when the version is old,
+   * otherwise when the shape changes or after 10 s. The body is `<version> <shape>`.
+   * @param response The HTTP response object.
+   * @param request The HTTP request object.
+   */
+  void gabs_cursor(resp_https_t response, req_https_t request) {
+    auto args = request->parse_query_string();
+    const auto known {gabs::cursor::parse_known(get_arg(args, "v", "0"))};
+    gabs::cursor::instance().poll(known, [response](const gabs::cursor::state_t &state) mutable {
+      // May run on the sampler thread; the response is sent when the last reference goes away.
+      response->write(gabs::cursor::format_reply(state));
+      response.reset();
+    });
   }
 
   /**
@@ -1770,6 +1792,7 @@ namespace nvhttp {
       resume(host_audio, resp, req);
     };
     https_server.resource["^/cancel$"]["GET"] = cancel;
+    https_server.resource["^/gabs/cursor$"]["GET"] = gabs_cursor;  // Gabs Remote
 
     https_server.config.reuse_address = true;
     https_server.config.address = net::get_bind_address(address_family);
@@ -1807,6 +1830,7 @@ namespace nvhttp {
     // Wait for any event
     shutdown_event->view();
 
+    gabs::cursor::instance().restore();  // Gabs Remote: answer the waiting /gabs/cursor requests before the server goes away
     https_server.stop();
     http_server.stop();
 

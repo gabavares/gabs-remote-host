@@ -77,6 +77,8 @@ set(PLATFORM_TARGET_FILES
         "${CMAKE_SOURCE_DIR}/src/platform/windows/gabs/sudovda_driver.cpp"
         # Gabs Remote: layout de teclado da sessão
         "${CMAKE_SOURCE_DIR}/src/platform/windows/gabs/keyboard_layout_win.cpp"
+        # Gabs Remote: formato do cursor para o app (grCursor)
+        "${CMAKE_SOURCE_DIR}/src/platform/windows/gabs/cursor_win.cpp"
         # Gabs Remote: placas de rede (MAC do WoL, presença)
         "${CMAKE_SOURCE_DIR}/src/platform/windows/gabs/adapters_win.cpp"
         # Gabs Remote: roda o instalador fora do job object do serviço (decisão 0006)

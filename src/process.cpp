@@ -29,6 +29,7 @@
 #include "config.h"
 #include "crypto.h"
 #include "display_device.h"
+#include "gabs/cursor.h"  // Gabs Remote
 #include "gabs/keyboard_layout.h"  // Gabs Remote
 #include "input.h"
 #include "logging.h"
@@ -415,6 +416,7 @@ namespace proc {
 #endif
 
       gabs::keyboard_layout::instance().restore();  // Gabs Remote: the app ended; the PC keyboard gets its layout back
+      gabs::cursor::instance().restore();  // Gabs Remote
       display_device::revert_configuration();
     }
 
