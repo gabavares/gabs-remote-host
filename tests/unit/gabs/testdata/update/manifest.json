@@ -1,0 +1,8 @@
+{
+  "schema": 1,
+  "version": "0.4.1",
+  "date": "2026-11-20",
+  "notes": "Versão de teste.\n- Linha com acento: atualização.\n- Linha com \"aspas\".",
+  "host": { "file": "GabsRemote-Setup-0.4.1.exe", "sha256": "fba6771d3b47443bb680f121dde8ff63c9903b0008ada6df7a9cff6242b23cfc", "size": 40, "minApp": "0.4.0" },
+  "app": { "file": "GabsRemote-0.4.1.apk", "sha256": "28564e7b238256a42a8cb7906fa795dd8a641386ede7c9bf9b634f58d3d43fe5", "size": 33, "versionCode": 4001, "minHost": "0.4.0" }
+}

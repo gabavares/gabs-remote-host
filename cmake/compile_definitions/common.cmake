@@ -162,6 +162,12 @@ set(SUNSHINE_TARGET_FILES
         # Gabs Remote: IPv4 público de casa por STUN (ExternalIP, WoL de fora)
         "${CMAKE_SOURCE_DIR}/src/gabs/external_ip.h"
         "${CMAKE_SOURCE_DIR}/src/gabs/external_ip.cpp"
+        # Gabs Remote: updater do host (manifesto assinado e política; decisão 0006)
+        "${CMAKE_SOURCE_DIR}/src/gabs/update_key.h"
+        "${CMAKE_SOURCE_DIR}/src/gabs/update_manifest.h"
+        "${CMAKE_SOURCE_DIR}/src/gabs/update_manifest.cpp"
+        "${CMAKE_SOURCE_DIR}/src/gabs/update_policy.h"
+        "${CMAKE_SOURCE_DIR}/src/gabs/update_policy.cpp"
         "${CMAKE_SOURCE_DIR}/src/entry_handler.cpp"
         "${CMAKE_SOURCE_DIR}/src/entry_handler.h"
         "${CMAKE_SOURCE_DIR}/src/file_handler.cpp"
