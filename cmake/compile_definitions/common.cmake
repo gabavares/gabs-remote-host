@@ -173,6 +173,9 @@ set(SUNSHINE_TARGET_FILES
         "${CMAKE_SOURCE_DIR}/src/gabs/update_policy.cpp"
         "${CMAKE_SOURCE_DIR}/src/gabs/update_service.h"
         "${CMAKE_SOURCE_DIR}/src/gabs/update_service.cpp"
+        # Gabs Remote: microfone do tablet (decisão 0007)
+        "${CMAKE_SOURCE_DIR}/src/gabs/mic.h"
+        "${CMAKE_SOURCE_DIR}/src/gabs/mic.cpp"
         "${CMAKE_SOURCE_DIR}/src/entry_handler.cpp"
         "${CMAKE_SOURCE_DIR}/src/entry_handler.h"
         "${CMAKE_SOURCE_DIR}/src/file_handler.cpp"
