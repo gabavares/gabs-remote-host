@@ -15,10 +15,13 @@
 #include <vector>
 
 // lib includes
+#include <boost/asio.hpp>
 #include <opus/opus.h>
 
 // local includes
+#include <src/gabs/features.h>
 #include <src/gabs/mic.h>
+#include <src/gabs/mic_service.h>
 
 namespace gm = gabs::mic;
 using namespace std::chrono_literals;
@@ -298,4 +301,161 @@ TEST(MicDecoder, DecodesEncodedTone) {
   // 440 Hz over 20 ms = 8.8 periods = about 17.6 zero crossings.
   EXPECT_GE(crossings, 14);
   EXPECT_LE(crossings, 22);
+}
+
+// ---- Task 4: virtual microphone in the session ----
+
+namespace {
+  const std::vector<gm::endpoint_t> endpoints {
+    {"a", "Alto-falantes (Realtek High Definition Audio)"},
+    {"c16", "CABLE In 16 Ch (VB-Audio Virtual Cable)"},
+    {"b", "Alto-falantes (VB-Audio Virtual Cable)"},
+  };
+
+  struct fake_sink_t: gm::sink_t {
+    struct shared_t {
+      std::mutex m;
+      int opens {0};
+      int closes {0};
+      int blocks {0};
+      int loud_blocks {0};
+    };
+
+    std::shared_ptr<shared_t> s {std::make_shared<shared_t>()};
+
+    bool open() override {
+      std::lock_guard lg {s->m};
+      ++s->opens;
+      return true;
+    }
+
+    void write(std::span<const std::int16_t> pcm) override {
+      std::lock_guard lg {s->m};
+      EXPECT_EQ(pcm.size(), 960u);
+      ++s->blocks;
+      for (auto v : pcm) {
+        if (v > 500 || v < -500) {
+          ++s->loud_blocks;
+          break;
+        }
+      }
+    }
+
+    void close() override {
+      std::lock_guard lg {s->m};
+      ++s->closes;
+    }
+  };
+
+  std::vector<std::vector<std::uint8_t>> tone_frames(int count) {
+    int err = 0;
+    auto *enc = opus_encoder_create(48000, 1, OPUS_APPLICATION_VOIP, &err);
+    std::vector<std::vector<std::uint8_t>> out;
+    for (int frame = 0; frame < count; ++frame) {
+      std::array<std::int16_t, 960> pcm {};
+      for (int i = 0; i < 960; ++i) {
+        pcm[i] = static_cast<std::int16_t>(10000 * std::sin(2 * 3.14159265358979 * 440 * (frame * 960 + i) / 48000.0));
+      }
+      std::vector<std::uint8_t> buf(1000);
+      auto len = opus_encode(enc, pcm.data(), 960, buf.data(), 1000);
+      buf.resize(len > 0 ? len : 0);
+      out.push_back(std::move(buf));
+    }
+    opus_encoder_destroy(enc);
+    return out;
+  }
+
+  void send_tone(std::uint16_t port, const crypto::aes_t &key, int count) {
+    boost::asio::io_context io;
+    boost::asio::ip::udp::socket sock {io, boost::asio::ip::udp::v4()};
+    boost::asio::ip::udp::endpoint to {boost::asio::ip::make_address("127.0.0.1"), port};
+    auto frames = tone_frames(count);
+    for (std::uint32_t seq = 0; seq < frames.size(); ++seq) {
+      auto &f = frames[seq];
+      auto p = gm::seal_packet(seq, std::string_view {reinterpret_cast<const char *>(f.data()), f.size()}, key);
+      sock.send_to(boost::asio::buffer(p), to);
+      std::this_thread::sleep_for(20ms);
+    }
+  }
+}  // namespace
+
+TEST(MicSink, ChoosesByName) {
+  EXPECT_EQ(gm::choose_mic_sink(endpoints, "VB-Audio Virtual Cable", "a"), std::optional<std::string> {"b"});
+  EXPECT_EQ(gm::choose_mic_sink(endpoints, "Alto-falantes (VB-Audio", "a"), std::optional<std::string> {"b"});
+}
+
+TEST(MicSink, RefusesCaptureEndpoint) {
+  EXPECT_EQ(gm::choose_mic_sink(endpoints, "VB-Audio Virtual Cable", "b"), std::nullopt);
+}
+
+TEST(MicSink, MissingIsNullopt) {
+  EXPECT_EQ(gm::choose_mic_sink(endpoints, "CABLE Input", "a"), std::nullopt);
+  EXPECT_EQ(gm::choose_mic_sink({}, "VB-Audio Virtual Cable", "a"), std::nullopt);
+}
+
+TEST(MicSink, SixteenChannelOnlyWhenAlone) {
+  std::vector<gm::endpoint_t> only16 {{"c16", "CABLE In 16 Ch (VB-Audio Virtual Cable)"}};
+  EXPECT_EQ(gm::choose_mic_sink(only16, "VB-Audio Virtual Cable", "a"), std::optional<std::string> {"c16"});
+}
+
+TEST(MicService, DeliversToSink) {
+  auto sink = std::make_unique<fake_sink_t>();
+  auto shared = sink->s;
+  gm::service_t svc {std::move(sink), 0};
+  svc.begin(test_key());
+  auto port = svc.port();
+  ASSERT_NE(port, 0);
+  send_tone(port, test_key(), 15);
+  std::this_thread::sleep_for(150ms);
+  svc.end();
+  {
+    std::lock_guard lg {shared->m};
+    EXPECT_EQ(shared->opens, 1);
+    EXPECT_EQ(shared->closes, 1);
+    EXPECT_GE(shared->blocks, 5);
+    EXPECT_GE(shared->loud_blocks, 5);
+  }
+  EXPECT_EQ(svc.port(), 0);
+  // The port is free again.
+  boost::asio::io_context io;
+  boost::asio::ip::udp::socket again {io};
+  boost::system::error_code ec;
+  again.open(boost::asio::ip::udp::v4(), ec);
+  again.bind({boost::asio::ip::udp::v4(), port}, ec);
+  EXPECT_FALSE(ec) << ec.message();
+}
+
+TEST(MicService, IgnoresOtherKey) {
+  auto sink = std::make_unique<fake_sink_t>();
+  auto shared = sink->s;
+  gm::service_t svc {std::move(sink), 0};
+  svc.begin(test_key());
+  auto other = test_key();
+  other[5] ^= 0x40;
+  send_tone(svc.port(), other, 10);
+  std::this_thread::sleep_for(100ms);
+  svc.end();
+  std::lock_guard lg {shared->m};
+  EXPECT_GE(shared->blocks, 5);  // silence keeps flowing
+  EXPECT_EQ(shared->loud_blocks, 0);
+}
+
+TEST(Features, ListsMic) {
+  EXPECT_NE((" " + gabs::features() + " ").find(" mic "), std::string::npos);
+}
+
+// Run by hand: test_sunshine.exe --gtest_also_run_disabled_tests --gtest_filter=*LiveToCable
+// Plays a 440 Hz tone for 3 s into the virtual cable; watch "CABLE Output" in mmsys.cpl > Recording.
+TEST(MicService, DISABLED_LiveToCable) {
+  auto sink = gm::make_platform_sink("VB-Audio Virtual Cable");
+  ASSERT_TRUE(sink->open());
+  for (int frame = 0; frame < 150; ++frame) {
+    std::array<std::int16_t, 960> pcm {};
+    for (int i = 0; i < 960; ++i) {
+      pcm[i] = static_cast<std::int16_t>(8000 * std::sin(2 * 3.14159265358979 * 440 * (frame * 960 + i) / 48000.0));
+    }
+    sink->write(pcm);
+    std::this_thread::sleep_for(20ms);
+  }
+  sink->close();
 }

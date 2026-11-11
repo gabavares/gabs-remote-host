@@ -43,6 +43,7 @@
       "stream_audio": "enabled",
       "install_steam_audio_drivers": "enabled",
       "external_audio": "disabled",
+      "gr_mic_sink": "VB-Audio Virtual Cable",
       "adapter_name": "",
       "output_name": "",
       "dd_configuration_option": "disabled",

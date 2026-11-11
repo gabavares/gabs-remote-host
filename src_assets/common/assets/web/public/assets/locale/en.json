@@ -248,6 +248,8 @@
     "encoder_software": "Software",
     "encoders": "Encoders",
     "external_audio": "Externally Managed Audio",
+    "gr_mic_sink": "Gabs Remote: tablet microphone output",
+    "gr_mic_sink_desc": "Part of the name of the playback device that feeds the virtual microphone (VB-CABLE). The tablet microphone is played there and Windows sees it as \"CABLE Output\".",
     "external_audio_desc": "Capture only the configured Audio Sink without changing Windows defaults or device formats. Requires an explicit Audio Sink. Virtual Sink selection, automatic Steam audio driver installation, and Moonlight's host-playback toggle are ignored; manage playback and application routing in your audio mixer.",
     "external_ip": "External IP",
     "external_ip_desc": "If no external IP address is given, Sunshine will automatically detect external IP",

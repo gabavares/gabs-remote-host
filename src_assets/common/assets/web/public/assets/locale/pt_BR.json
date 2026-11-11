@@ -248,6 +248,8 @@
     "encoder_software": "Software",
     "encoders": "Codificadores",
     "external_audio": "Áudio gerenciado externamente",
+    "gr_mic_sink": "Gabs Remote: saída do microfone do tablet",
+    "gr_mic_sink_desc": "Parte do nome do dispositivo de reprodução que alimenta o microfone virtual (VB-CABLE). O microfone do tablet toca nele e o Windows o vê como \"CABLE Output\".",
     "external_audio_desc": "Capture apenas o Sinal de Áudio configurado sem alterar os padrões do Windows ou os formatos do dispositivo. Requer um Sinal de Áudio explícito. Seleção de Sink Virtual, instalação automática de driver de áudio Steam e alternância de reprodução de host da Moonlight são ignoradas; gerencie a reprodução e o roteamento de aplicativos no seu mixador de áudio.",
     "external_ip": "IP externo",
     "external_ip_desc": "Se nenhum endereço IP externo for fornecido, o Sunshine detectará automaticamente o IP externo",

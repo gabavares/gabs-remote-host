@@ -176,6 +176,11 @@ set(SUNSHINE_TARGET_FILES
         # Gabs Remote: microfone do tablet (decisão 0007)
         "${CMAKE_SOURCE_DIR}/src/gabs/mic.h"
         "${CMAKE_SOURCE_DIR}/src/gabs/mic.cpp"
+        "${CMAKE_SOURCE_DIR}/src/gabs/mic_service.h"
+        "${CMAKE_SOURCE_DIR}/src/gabs/mic_service.cpp"
+        # Gabs Remote: GabsFeatures no /serverinfo
+        "${CMAKE_SOURCE_DIR}/src/gabs/features.h"
+        "${CMAKE_SOURCE_DIR}/src/gabs/features.cpp"
         "${CMAKE_SOURCE_DIR}/src/entry_handler.cpp"
         "${CMAKE_SOURCE_DIR}/src/entry_handler.h"
         "${CMAKE_SOURCE_DIR}/src/file_handler.cpp"

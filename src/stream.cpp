@@ -28,6 +28,7 @@ extern "C" {
 #include "display_device.h"
 #include "gabs/cursor.h"  // Gabs Remote
 #include "gabs/keyboard_layout.h"  // Gabs Remote
+#include "gabs/mic_service.h"  // Gabs Remote
 #include "gabs/virtual_display.h"  // Gabs Remote
 #include "globals.h"
 #include "input.h"
@@ -568,6 +569,7 @@ namespace stream {
 
     std::uint32_t launch_session_id;  ///< RTSP launch-session ID associated with this stream.
     std::string client_cert;  ///< PEM certificate for the paired client owning the stream.
+    crypto::aes_t gabs_mic_key;  ///< Gabs Remote: session key for the tablet microphone (UDP 48002).
     std::string input_session_id;  ///< Stable client identity used to retain input devices across resume.
 
     safe::mail_raw_t::event_t<bool> shutdown_event;  ///< Event raised when the stream should shut down.
@@ -2325,6 +2327,7 @@ namespace stream {
       // If this is the last session, invoke the platform callbacks
       if (--running_sessions == 0) {
         gabs::cursor::instance().restore();  // Gabs Remote: the cursor goes back into the video
+        gabs::mic::instance().end();  // Gabs Remote: socket closed and the virtual microphone released
         // Gabs Remote: with a virtual display the PC stays ready (display and keyboard) until the app is quit.
         bool revert_display_config {gabs::virtual_display::should_revert_on_session_end(config::video.dd.config_revert_on_disconnect)};
         if (proc::proc.running()) {
@@ -2382,6 +2385,9 @@ namespace stream {
 
       session.state.store(state_e::RUNNING, std::memory_order_relaxed);
 
+      // Gabs Remote: the tablet microphone follows the newest session.
+      gabs::mic::instance().begin(session.gabs_mic_key);
+
       // If this is the first session, invoke the platform callbacks
       if (++running_sessions == 1) {
         platf::streaming_will_start();
@@ -2404,6 +2410,7 @@ namespace stream {
       session->shutdown_event = mail->event<bool>(mail::shutdown);
       session->launch_session_id = launch_session.id;
       session->client_cert = launch_session.client_cert;
+      session->gabs_mic_key = launch_session.gcm_key;  // Gabs Remote
       session->input_session_id = launch_session.client_cert.empty() ? launch_session.unique_id : launch_session.client_cert;
 
       session->config = config;

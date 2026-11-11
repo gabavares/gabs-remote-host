@@ -241,6 +241,7 @@ namespace config {
     bool stream;  ///< Enable audio streaming to clients
     bool install_steam_drivers;  ///< Install Steam audio drivers for enhanced compatibility
     bool external_audio;  ///< Windows capture-only mode; an external router owns endpoint defaults and formats.
+    std::string gr_mic_sink;  ///< Gabs Remote: playback endpoint (part of its name) that feeds the virtual microphone (decision 0007)
   };
 
   /**

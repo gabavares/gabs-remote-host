@@ -972,6 +972,33 @@ consent prompt for directory ACLs, so the Web UI shows setup steps for correctin
     </tr>
 </table>
 
+### gr_mic_sink
+
+<table>
+    <tr>
+        <td>Description</td>
+        <td colspan="2">
+            Gabs Remote: part of the name of the playback endpoint that feeds the virtual microphone
+            (VB-CABLE, decision 0007). The tablet microphone, received on UDP 48002 during a session,
+            is played there and Windows sees it as "CABLE Output". The 16-channel VB-CABLE endpoint is
+            skipped, and the endpoint is refused if it is the default output being captured for the session.
+            @note{This option is only supported on Windows.}
+        </td>
+    </tr>
+    <tr>
+        <td>Default</td>
+        <td colspan="2">@code{}
+            VB-Audio Virtual Cable
+            @endcode</td>
+    </tr>
+    <tr>
+        <td>Example</td>
+        <td colspan="2">@code{}
+            gr_mic_sink = Speakers (VB-Audio Virtual Cable)
+            @endcode</td>
+    </tr>
+</table>
+
 ### adapter_name
 
 <table>
